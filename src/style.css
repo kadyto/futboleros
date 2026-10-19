@@ -529,6 +529,20 @@ h1 > span {
   margin: 0 15px 18px;
   text-align: center;
 }
+.next-venue a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.next-venue a:hover {
+  color: var(--lime);
+}
+.next-venue svg {
+  flex-shrink: 0;
+}
 .next-link {
   display: flex;
   width: 100%;

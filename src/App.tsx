@@ -641,8 +641,23 @@ export default function App() {
                             </div>
                           </div>
                           <div className="next-venue">
-                            <MapPin size={16} />
-                            <span>{next.venue || "Campo por confirmar"}</span>
+                            {next.venue?.trim() ? (
+                              <a
+                                href={`/api/maps?matchId=${encodeURIComponent(next.id)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Ver campo en Google Maps (se abre en otra pestaña)"
+                              >
+                                <MapPin size={16} aria-hidden="true" />
+                                <span>{next.venue}</span>
+                                <ExternalLink size={12} aria-hidden="true" />
+                              </a>
+                            ) : (
+                              <>
+                                <MapPin size={16} aria-hidden="true" />
+                                <span>Campo por confirmar</span>
+                              </>
+                            )}
                           </div>
                           <MatchForecast
                             match={next}

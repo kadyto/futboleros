@@ -8,7 +8,7 @@ import { makeCalendar } from "./calendar.mjs";
 import { SiteSettings } from "./settings.mjs";
 import { AdminAuth } from "./auth.mjs";
 import { WeatherService } from "./weather.mjs";
-import { WeatherLocations } from "./weather-locations.mjs";
+import { WeatherLocations, cleanVenue } from "./weather-locations.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
@@ -114,6 +114,33 @@ export function createApp({
       res.json(config.team ? await getSnapshot(config.team.id) : null);
     } catch (e) {
       next(e);
+    }
+  });
+  app.get("/api/maps", async (req, res, next) => {
+    try {
+      const config = await settings.read();
+      if (!config.team)
+        return res
+          .status(404)
+          .json({ error: "Todavía no hay un equipo configurado." });
+      const id = typeof req.query.matchId === "string" ? req.query.matchId : "";
+      const snapshot = await getSnapshot(config.team.id);
+      const match = snapshot.matches.find((match) => match.id === id);
+      if (!match || !cleanVenue(match.venue))
+        return res
+          .status(404)
+          .json({ error: "El campo del partido no está disponible." });
+      const location = await locations.saved(match);
+      const url = new URL("https://www.google.com/maps/search/");
+      url.search = new URLSearchParams({
+        api: "1",
+        query: location
+          ? `${location.latitude},${location.longitude}`
+          : `${cleanVenue(match.venue)}, Comunidad de Madrid, España`,
+      }).toString();
+      res.redirect(302, url.href);
+    } catch (error) {
+      next(error);
     }
   });
   app.get("/api/weather", async (req, res, next) => {
