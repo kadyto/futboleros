@@ -26,6 +26,7 @@ import { findStanding, hasPosition } from "./match-insights";
 import FederationLink from "./FederationLink";
 import { teamProfileUrl, matchReportUrl } from "./federation-links";
 import PlayerCard from "./PlayerCard";
+import MatchWeather from "./MatchWeather";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -647,6 +648,11 @@ export default function App() {
                             match={next}
                             standings={data.standings}
                             stale={data.stale}
+                          />
+                          <MatchWeather
+                            key={`${next.id}:${next.date}:${next.time}:${next.venueId || next.venue}`}
+                            match={next}
+                            refreshKey={refreshKey}
                           />
                           <button
                             className="next-link"

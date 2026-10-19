@@ -2343,6 +2343,85 @@ td.points {
 .forecast-unavailable {
   margin-top: 10px;
 }
+.match-weather {
+  margin: 0 24px 20px;
+  padding: 16px;
+  border: 1px solid #ffffff1f;
+  border-radius: 9px;
+  position: relative;
+}
+.match-weather h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.match-weather p {
+  font-size: 10px;
+  color: #c0ceba;
+  line-height: 1.7;
+}
+.match-weather p[role="status"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.weather-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin: 14px 0;
+}
+.weather-values > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.weather-values > div > svg {
+  color: #bddb9d;
+  flex-shrink: 0;
+}
+.weather-values small {
+  display: block;
+  color: #bfceba;
+  font-size: 10px;
+}
+.weather-values > div > span {
+  min-width: 0;
+}
+.weather-values strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 21px;
+  font-weight: 600;
+}
+.weather-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 8px;
+  font-size: 9px;
+  color: #c0ceba;
+}
+.weather-sources a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 650px) {
+  .match-weather {
+    margin: 0 14px 18px;
+    padding: 13px;
+  }
+  .weather-values {
+    gap: 10px;
+  }
+  .weather-values strong {
+    font-size: 19px;
+  }
+  .weather-values small {
+    font-size: 9px;
+  }
+}
 .season-panel {
   align-self: start;
 }

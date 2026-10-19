@@ -7,6 +7,8 @@ import { demoSnapshot } from "./demo.mjs";
 import { makeCalendar } from "./calendar.mjs";
 import { SiteSettings } from "./settings.mjs";
 import { AdminAuth } from "./auth.mjs";
+import { WeatherService } from "./weather.mjs";
+import { WeatherLocations } from "./weather-locations.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
@@ -14,6 +16,8 @@ export function createApp({
   clock,
   adminPassword = process.env.ADMIN_PASSWORD,
   cookieSecure = process.env.COOKIE_SECURE || "auto",
+  weather,
+  weatherLocations,
 } = {}) {
   const federation = provider || new Federation({ directory });
   const cache = new SnapshotCache({
@@ -23,6 +27,11 @@ export function createApp({
   });
   const settings = new SiteSettings(directory);
   const auth = new AdminAuth({ password: adminPassword, clock, cookieSecure });
+  const locations =
+    weatherLocations || new WeatherLocations({ directory, clock });
+  const weatherService =
+    weather ||
+    new WeatherService({ locate: (match) => locations.locate(match), clock });
   const app = express();
   app.disable("x-powered-by");
   app.set("query parser", "simple");
@@ -107,6 +116,97 @@ export function createApp({
       next(e);
     }
   });
+  app.get("/api/weather", async (req, res, next) => {
+    try {
+      const config = await settings.read();
+      if (!config.team)
+        return res
+          .status(404)
+          .json({ error: "Todavía no hay un equipo configurado." });
+      const id = typeof req.query.matchId === "string" ? req.query.matchId : "";
+      const snapshot = await getSnapshot(config.team.id);
+      const match = snapshot.matches.find((match) => match.id === id);
+      if (!match)
+        return res
+          .status(404)
+          .json({ error: "Partido no disponible para el equipo configurado." });
+      res.json(await weatherService.forMatch(match));
+    } catch (error) {
+      next(error);
+    }
+  });
+  async function nextWeatherMatch() {
+    const config = await settings.read();
+    if (!config.team) return null;
+    const snapshot = await getSnapshot(config.team.id);
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(clock ? clock() : Date.now()));
+    return (
+      snapshot.matches
+        .filter(
+          (match) =>
+            match.status === "scheduled" &&
+            match.homeScore === null &&
+            match.awayScore === null &&
+            (!match.date || match.date >= today),
+        )
+        .sort(
+          (a, b) =>
+            (a.date || "9999").localeCompare(b.date || "9999") ||
+            a.round - b.round,
+        )[0] || null
+    );
+  }
+  app.get(
+    "/api/admin/weather-location",
+    auth.require,
+    async (_req, res, next) => {
+      try {
+        const match = await nextWeatherMatch();
+        if (!match)
+          return res.json({ match: null, saved: null, candidates: [] });
+        const saved = await locations.saved(match);
+        const candidates = await locations
+          .candidates(match.venue)
+          .catch(() => []);
+        res.json({
+          match: { id: match.id, venue: match.venue, venueId: match.venueId },
+          saved,
+          candidates,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  app.put(
+    "/api/admin/weather-location",
+    auth.require,
+    auth.sameOrigin,
+    async (req, res, next) => {
+      try {
+        const match = await nextWeatherMatch();
+        if (
+          !match ||
+          match.id !== req.body?.matchId ||
+          match.venue !== req.body?.venue ||
+          match.venueId !== req.body?.venueId
+        )
+          return res.status(409).json({
+            error: "El próximo partido ha cambiado. Recarga el panel.",
+          });
+        const saved = await locations.save(match, req.body);
+        weatherService.invalidate?.();
+        res.json({ saved });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   app.get("/api/calendar.ics", async (_req, res, next) => {
     try {
       const config = await settings.read();
@@ -150,12 +250,10 @@ export function createApp({
     try {
       const config = await settings.read();
       if (config.team?.id !== req.params.id)
-        return res
-          .status(403)
-          .json({
-            error:
-              "La parte pública solo permite consultar el equipo configurado.",
-          });
+        return res.status(403).json({
+          error:
+            "La parte pública solo permite consultar el equipo configurado.",
+        });
       next();
     } catch (e) {
       next(e);

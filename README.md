@@ -6,6 +6,7 @@ Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, 
 
 - Configurar un equipo de la Federación de Fútbol de Madrid desde un panel protegido con contraseña, buscando el club o pegando su ficha.
 - Ver en la portada el próximo encuentro, el último resultado y la posición en la liga.
+- Ver la temperatura prevista y la probabilidad de lluvia para el próximo partido, sin claves de API.
 - Consultar el calendario completo, los resultados, la clasificación y la plantilla pública.
 - Abrir las fichas de jugadores y equipos en la federación desde sus nombres; los enlaces se abren en otra pestaña cuando hay un identificador público válido.
 - Abrir «Ver acta» junto a cada partido del calendario, en Próximos, Resultados y Todos. Antes del encuentro se abre su ficha; el contenido del acta depende de lo que publique la federación. Si todavía no hay identificador, se indica «Acta no disponible».
@@ -26,6 +27,16 @@ Se necesitan al menos tres partidos de cada equipo, posiciones disponibles y est
 
 Es una aproximación estadística sin calibración ni validación histórica para estas competiciones; no garantiza resultados y no considera bajas, alineaciones ni cambios de plantilla. Si se está mostrando la última copia guardada, la estimación utiliza esa misma clasificación y se indica en la explicación. No requiere servicios ni claves externos.
 
+## Previsión meteorológica
+
+La tarjeta del próximo partido consulta [Open-Meteo](https://open-meteo.com/) desde el servidor. Su API gratuita es para uso no comercial y no necesita registro ni clave. La previsión llega hasta 16 días y usa la hora de Madrid. Con horario confirmado se elige la hora de pronóstico más cercana; si falta la hora se muestran la mínima y máxima del día y su probabilidad máxima de lluvia. Los valores se redondean para mostrarlos. La lluvia se expresa como probabilidad, no como cantidad acumulada. Los datos ausentes se muestran como tales, sin convertirlos en cero.
+
+La ubicación aproximada del campo se busca con [Nominatim/OpenStreetMap](https://nominatim.org/). Se consultan únicamente instalaciones deportivas en Madrid y sus alrededores; si el nombre es ambiguo o no aparece, entra en **Administración → Ubicación para la previsión**. Allí puedes comprobar las alternativas en el mapa y guardar la correcta, o introducir las coordenadas del campo. La selección se conserva por identificador federativo del campo en `/data/weather-locations.json`, de modo que dos campos con el mismo nombre no comparten la configuración. Cuando falta ese identificador, la confirmación solo se aplica a ese partido. Solo la administración puede modificarla.
+
+Las previsiones se comparten entre visitantes y se guardan en memoria durante 30 minutos. La búsqueda de campos se conserva durante 24 horas y las consultas simultáneas se agrupan. Se respeta la [política de Nominatim](https://operations.osmfoundation.org/policies/nominatim/): solicitudes identificadas, como máximo una por segundo, caché y atribución; no se utiliza autocompletado ni consultas masivas. Si falla la meteorología, se reintenta tras cinco minutos y se puede mostrar la última previsión, marcada como antigua, durante un máximo de seis horas. Un fallo meteorológico no impide ver el partido, los resultados o la clasificación.
+
+No se solicita la ubicación del visitante. El servidor envía el nombre público del campo a Nominatim y las coordenadas de la instalación a Open-Meteo; no envía nombres de jugadores ni datos de usuarios. El navegador solo consulta la API de esta aplicación. Los datos meteorológicos proceden de Open-Meteo bajo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); las ubicaciones, de [OpenStreetMap](https://www.openstreetmap.org/copyright). Las fuentes y su atribución aparecen junto a la previsión.
+
 ## Instalar en Dockhand
 
 Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Define `ADMIN_PASSWORD` en las variables del stack con una contraseña propia de al menos 12 caracteres. Construye y despliega el stack. No necesitas clonar el repositorio ni elegir rutas de almacenamiento.
@@ -34,7 +45,7 @@ El compose descarga el código de `main`, construye la web y publica el puerto *
 
 El volumen `futboleros_data` se crea automáticamente y conserva la selección del equipo y la caché entre recreaciones del contenedor. Mantén el nombre del stack y su volumen al actualizar. Todos los navegadores muestran el mismo equipo.
 
-La imagen se construye con Node 24 sobre Alpine, con variantes para amd64 y arm64. La primera construcción necesita acceso a Docker Hub, GitHub y el registro de npm. En ejecución necesita HTTPS a `www.rffm.es`.
+La imagen se construye con Node 24 sobre Alpine, con variantes para amd64 y arm64. La primera construcción necesita acceso a Docker Hub, GitHub y el registro de npm. En ejecución necesita HTTPS a `www.rffm.es`, `api.open-meteo.com` y `nominatim.openstreetmap.org`.
 
 Para más detalles, consulta [la guía de instalación y mantenimiento](docs/despliegue.md).
 

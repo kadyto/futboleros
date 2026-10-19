@@ -134,6 +134,9 @@ export function parseMatches(raw, teamId) {
         date: parseDate(m.fecha),
         time: validTime,
         venue: clean(m.campo) || null,
+        ...(/^[1-9]\d{0,11}$/.test(String(m.codigo_campo))
+          ? { venueId: String(m.codigo_campo) }
+          : {}),
         status: postponed
           ? "postponed"
           : homeScore !== null && awayScore !== null

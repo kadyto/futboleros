@@ -19,6 +19,7 @@ export interface Match {
   date: string | null;
   time: string | null;
   venue: string | null;
+  venueId?: string;
   status: "scheduled" | "played" | "postponed" | "unknown";
 }
 export interface Standing {
@@ -50,3 +51,19 @@ export interface Snapshot {
   demo?: boolean;
   warnings: string[];
 }
+
+export type MatchWeather =
+  | { available: false; reason: string }
+  | {
+      available: true;
+      matchId: string;
+      mode: "hourly" | "daily";
+      forecastFor: string;
+      temperature: number | null;
+      temperatureMin: number | null;
+      temperatureMax: number | null;
+      rainProbability: number | null;
+      location: string;
+      updatedAt: string;
+      stale: boolean;
+    };

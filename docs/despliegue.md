@@ -41,7 +41,7 @@ Para fijar una versión, sustituye `#main` en el contexto Git del compose de Doc
 
 ## Almacenamiento
 
-`/data/settings.json` contiene el equipo público configurado. El resto de archivos son instantáneas e índices de grupos. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva `settings.json` para no tener que elegir el equipo otra vez. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
+`/data/settings.json` contiene el equipo público configurado. `/data/weather-locations.json` conserva las ubicaciones de campos confirmadas. El resto de archivos son instantáneas e índices de grupos. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva `settings.json` y `weather-locations.json` para mantener el equipo y las ubicaciones confirmadas. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
 
 El equipo es común a todos los navegadores. Borrar los datos de un navegador no altera la selección. Cerrar sesión o reiniciar el contenedor tampoco cambia el equipo.
 
@@ -64,6 +64,7 @@ docker compose logs --tail=100 futboleros
 - **Puerto ocupado:** cambia `APP_PORT` y recrea el servicio.
 - **La aplicación abre, pero no carga el equipo:** comprueba la conexión del contenedor con `https://www.rffm.es`, el enlace de la ficha y el aviso que muestra la aplicación. Reintenta después de que se recupere el origen.
 - **Salen datos anteriores:** consulta la fecha indicada. Un fallo del origen conserva la última copia con aviso; la caché normal dura 15 minutos.
+- **No aparece la previsión:** comprueba HTTPS hacia `api.open-meteo.com` y `nominatim.openstreetmap.org`. Si falta confirmar el campo, entra en Administración → Ubicación para la previsión y guarda la alternativa correcta o sus coordenadas. Las fechas fuera de los próximos 16 días todavía no tienen pronóstico. No se necesitan claves de API.
 - **Aún no hay calendario o clasificación:** puede que la federación no haya asignado grupo o publicado la competición para la temporada actual.
 - **El panel no está habilitado:** comprueba que `ADMIN_PASSWORD` llega al contenedor y tiene al menos 12 caracteres. Tras cambiar variables hay que recrear el servicio.
 - **El equipo no se guarda:** revisa los permisos del volumen y el mensaje del panel. Un error de escritura no se presenta como guardado correcto.

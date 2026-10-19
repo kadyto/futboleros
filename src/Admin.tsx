@@ -18,6 +18,7 @@ import {
 import type { Snapshot, Team } from "./types";
 import "./admin.css";
 import Brand from "./Brand";
+import WeatherSettings from "./WeatherSettings";
 
 type PublicTeam = Pick<Team, "id" | "name" | "category">;
 type Config = { team: PublicTeam | null; updatedAt: string | null };
@@ -503,6 +504,11 @@ export default function Admin() {
                 </p>
               </div>
             </section>
+            {config.team && (
+              <WeatherSettings
+                teamVersion={`${config.team.id}:${config.updatedAt}`}
+              />
+            )}
             <div className="admin-info">
               <LockKeyhole size={16} />
               <p>

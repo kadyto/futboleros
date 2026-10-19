@@ -24,6 +24,7 @@ export function fakeProvider() {
       }
       for (const m of value.matches) {
         m.id = String(3000 + m.round);
+        m.venueId = m.homeId === "demo" ? "4001" : "4002";
         if (m.homeId === "demo") {
           m.homeId = id;
           m.home = value.team.name;
@@ -62,6 +63,26 @@ export function fakeProvider() {
         more: false,
       };
     },
+  };
+}
+export function fakeWeather() {
+  return {
+    async forMatch(match) {
+      return {
+        available: true,
+        matchId: match.id,
+        mode: "hourly",
+        forecastFor: `${match.date}T${match.time || "12:00"}`,
+        temperature: 0,
+        temperatureMin: null,
+        temperatureMax: null,
+        rainProbability: 0,
+        location: match.venue,
+        updatedAt: new Date().toISOString(),
+        stale: false,
+      };
+    },
+    invalidate() {},
   };
 }
 export async function startTestApp(t, options = {}) {

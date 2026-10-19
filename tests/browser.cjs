@@ -5,7 +5,8 @@ const os = require("node:os");
 const path = require("node:path");
 (async () => {
   const { createApp } = await import("../server/index.mjs");
-  const { fakeProvider, TEST_PASSWORD } = await import("./helpers.mjs");
+  const { fakeProvider, fakeWeather, TEST_PASSWORD } =
+    await import("./helpers.mjs");
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), "futboleros-browser-"),
   );
@@ -16,6 +17,7 @@ const path = require("node:path");
     directory,
     provider: fakeProvider(),
     adminPassword: TEST_PASSWORD,
+    weather: fakeWeather(),
   }).listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -113,12 +115,35 @@ const path = require("node:path");
       .getByRole("status")
       .filter({ hasText: "Equipo guardado" })
       .waitFor();
+    await admin
+      .getByRole("heading", {
+        name: "Ubicación para la previsión",
+        exact: true,
+      })
+      .waitFor();
+    await admin
+      .getByText("Introducir coordenadas del campo", { exact: true })
+      .click();
+    await admin.getByLabel("Latitud del campo").fill("40.4");
+    await admin.getByLabel("Longitud del campo").fill("-3.7");
+    await admin
+      .getByRole("button", { name: "Guardar ubicación del campo", exact: true })
+      .click();
+    await admin
+      .getByRole("status")
+      .filter({ hasText: "Ubicación guardada" })
+      .waitFor();
     await admin.screenshot({
       path: "test-results/admin-desktop.png",
       fullPage: true,
     });
     await page.goto(base + "/?team=1002");
     await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
+    await page.locator(".weather-values").waitFor();
+    assert.deepEqual(
+      await page.locator(".weather-values strong").allTextContents(),
+      ["0 °C", "0 %"],
+    );
     assert.equal(
       await page.locator(".team-banner h2").textContent(),
       "C.D. Olivares A",
@@ -413,9 +438,24 @@ const path = require("node:path");
         match.id = "missing-report-id" + match.round;
       await route.fulfill({ response, json: snapshot });
     });
+    await page.route("**/api/weather?*", (route) =>
+      route.fulfill({
+        json: {
+          available: false,
+          reason:
+            "La previsión meteorológica no está disponible en este momento.",
+        },
+      }),
+    );
     await page.reload();
     await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
     await page.locator(".forecast-unavailable").waitFor();
+    await page
+      .getByText(
+        "La previsión meteorológica no está disponible en este momento.",
+        { exact: true },
+      )
+      .waitFor();
     assert.equal(await page.locator(".forecast-outcomes").count(), 0);
     assert.deepEqual(
       await page.locator(".matchup .team-position").allTextContents(),

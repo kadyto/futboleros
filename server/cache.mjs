@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-export const CACHE_SCHEMA_VERSION = 1;
+export const CACHE_SCHEMA_VERSION = 2;
 
 function publicSnapshot({ cacheVersion, ...value }, stale) {
   return { ...value, stale };

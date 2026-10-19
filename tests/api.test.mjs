@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { startTestApp, request, signIn, TEST_PASSWORD } from "./helpers.mjs";
+import {
+  startTestApp,
+  request,
+  signIn,
+  TEST_PASSWORD,
+  fakeProvider,
+} from "./helpers.mjs";
+import { WeatherService } from "../server/weather.mjs";
+import { WeatherLocations } from "../server/weather-locations.mjs";
 
 test("public visitors see only the server-configured team and cannot select another", async (t) => {
   const { url, directory } = await startTestApp(t);
@@ -119,4 +127,135 @@ test("a second browser sees the saved change and settings survive application re
     "sessions do not survive restart",
   );
   assert.equal((await request(b.url, "/api/teams/1001")).status, 403);
+});
+
+test("weather is limited to the configured team's matches and only an authenticated admin can save the field location", async (t) => {
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "futboleros-weather-api-"),
+  );
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const snapshot = await fakeProvider().snapshot("1001");
+  const match = snapshot.matches.find((value) => value.status === "scheduled");
+  const clock = () => Date.parse(`${match.date}T00:00:00Z`);
+  const locations = new WeatherLocations({
+    directory,
+    getJson: async () => [],
+    clock,
+  });
+  let calls = 0;
+  const weather = new WeatherService({
+    locate: (match) => locations.locate(match),
+    clock,
+    getJson: async (url) => {
+      calls++;
+      assert.equal(url.searchParams.get("latitude"), "40.4000");
+      return {
+        timezone: "Europe/Madrid",
+        hourly_units: { temperature_2m: "°C", precipitation_probability: "%" },
+        hourly: {
+          time: [`${match.date}T${match.time}`],
+          temperature_2m: [0],
+          precipitation_probability: [0],
+        },
+      };
+    },
+  });
+  const { url } = await startTestApp(t, {
+    directory,
+    weather,
+    weatherLocations: locations,
+    clock,
+  });
+  assert.equal(
+    (await request(url, `/api/weather?matchId=${match.id}`)).status,
+    404,
+  );
+  assert.equal((await request(url, "/api/admin/weather-location")).status, 401);
+  const cookie = await signIn(url);
+  await request(url, "/api/admin/config", {
+    method: "PUT",
+    cookie,
+    body: { teamId: "1001" },
+  });
+  assert.equal((await request(url, "/api/weather?matchId=999999")).status, 404);
+  assert.equal(
+    (await (await request(url, `/api/weather?matchId=${match.id}`)).json())
+      .available,
+    false,
+  );
+  const body = {
+    matchId: match.id,
+    venue: match.venue,
+    venueId: match.venueId,
+    latitude: 40.4,
+    longitude: -3.7,
+  };
+  assert.equal(
+    (await request(url, "/api/admin/weather-location", { method: "PUT", body }))
+      .status,
+    401,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/weather-location", {
+        method: "PUT",
+        cookie,
+        body,
+        headers: { "X-Futboleros-Admin": "" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/weather-location", {
+        method: "PUT",
+        cookie,
+        body: { ...body, latitude: 0 },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/weather-location", {
+        method: "PUT",
+        cookie,
+        body: { ...body, matchId: "wrong" },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/weather-location", {
+        method: "PUT",
+        cookie,
+        body: { ...body, venueId: "changed-field" },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/weather-location", {
+        method: "PUT",
+        cookie,
+        body,
+      })
+    ).status,
+    200,
+  );
+  const value = await (
+    await request(
+      url,
+      `/api/weather?matchId=${match.id}&latitude=0&longitude=0`,
+    )
+  ).json();
+  assert.equal(value.available, true);
+  assert.equal(value.temperature, 0);
+  assert.equal(value.rainProbability, 0);
+  assert.equal(calls, 1);
+  const reopened = new WeatherLocations({ directory });
+  assert.equal((await reopened.saved(match)).longitude, -3.7);
 });
