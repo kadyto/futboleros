@@ -20,6 +20,7 @@ export interface Match {
   time: string | null;
   venue: string | null;
   venueId?: string;
+  venueMapsUrl?: string;
   status: "scheduled" | "played" | "postponed" | "unknown";
 }
 export interface Standing {

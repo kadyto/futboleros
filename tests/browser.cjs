@@ -53,6 +53,12 @@ const path = require("node:path");
           body: "<!doctype html><title>Ficha de prueba</title><h1>Ficha de prueba</h1>",
         }),
     );
+    await publicContext.route("https://www.google.com/maps/**", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<!doctype html><title>Mapa de prueba</title>",
+      }),
+    );
     async function openProfile(link, expected, card, touch = false) {
       assert.equal(await link.getAttribute("href"), expected);
       assert.equal(await link.getAttribute("target"), "_blank");
@@ -140,6 +146,9 @@ const path = require("node:path");
     await page.goto(base + "/?team=1002");
     await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
     await page.locator(".weather-values").waitFor();
+    const mapsUrl =
+      "https://www.google.com/maps/search/?api=1&query=40.4%2C-3.7";
+    await openProfile(page.locator(".next-venue a"), mapsUrl);
     assert.deepEqual(
       await page.locator(".weather-values strong").allTextContents(),
       ["0 °C", "0 %"],
@@ -332,6 +341,7 @@ const path = require("node:path");
     await page.waitForFunction(
       () => document.documentElement.scrollWidth <= innerWidth,
     );
+    await openProfile(page.locator(".next-venue a"), mapsUrl, undefined, true);
     await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
     const mobileNav = page.getByRole("navigation", {
       name: "Navegación móvil",
@@ -485,7 +495,7 @@ const path = require("node:path");
     await publicContext.close();
     await adminContext.close();
     console.log(
-      "Browser checks passed: admin flow, locked public team, current positions, estimates, player and team profile links, missing data, four views, ICS, persistence, logout and mobile layouts.",
+      "Browser checks passed: admin flow, locked public team, current positions, estimates, direct Google Maps links, player and team profile links, missing data, four views, ICS, persistence, logout and mobile layouts.",
     );
   } finally {
     await browser.close();

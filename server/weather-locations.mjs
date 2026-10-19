@@ -53,17 +53,37 @@ export class WeatherLocations {
     this.pending = new Map();
     this.writes = Promise.resolve();
   }
-  async saved(match) {
+  async readSaved() {
     try {
-      const values = JSON.parse(await readFile(this.file, "utf8"));
-      const value = values[locationKey(match)];
-      return value && withinRegion(value.latitude, value.longitude)
-        ? value
-        : null;
+      return JSON.parse(await readFile(this.file, "utf8"));
     } catch (error) {
-      if (error.code === "ENOENT" || error instanceof SyntaxError) return null;
+      if (error.code === "ENOENT" || error instanceof SyntaxError) return {};
       throw error;
     }
+  }
+  async saved(match) {
+    const values = await this.readSaved();
+    const value = values[locationKey(match)];
+    return value && withinRegion(value.latitude, value.longitude)
+      ? value
+      : null;
+  }
+  async withMapLinks(matches) {
+    const values = await this.readSaved();
+    return matches.map((match) => {
+      const venue = cleanVenue(match.venue);
+      if (!venue) return { ...match, venueMapsUrl: undefined };
+      const location = values[locationKey(match)];
+      const url = new URL("https://www.google.com/maps/search/");
+      url.search = new URLSearchParams({
+        api: "1",
+        query:
+          location && withinRegion(location.latitude, location.longitude)
+            ? `${location.latitude},${location.longitude}`
+            : `${venue}, Comunidad de Madrid, España`,
+      }).toString();
+      return { ...match, venueMapsUrl: url.href };
+    });
   }
   async candidates(venue) {
     const name = cleanVenue(venue),

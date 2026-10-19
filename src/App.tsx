@@ -641,9 +641,9 @@ export default function App() {
                             </div>
                           </div>
                           <div className="next-venue">
-                            {next.venue?.trim() ? (
+                            {next.venueMapsUrl ? (
                               <a
-                                href={`/api/maps?matchId=${encodeURIComponent(next.id)}`}
+                                href={next.venueMapsUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Ver campo en Google Maps (se abre en otra pestaña)"
@@ -655,7 +655,7 @@ export default function App() {
                             ) : (
                               <>
                                 <MapPin size={16} aria-hidden="true" />
-                                <span>Campo por confirmar</span>
+                                <span>{next.venue || "Campo por confirmar"}</span>
                               </>
                             )}
                           </div>

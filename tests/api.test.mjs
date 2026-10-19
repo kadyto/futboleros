@@ -178,6 +178,14 @@ test("weather is limited to the configured team's matches and only an authentica
     body: { teamId: "1001" },
   });
   assert.equal((await request(url, "/api/weather?matchId=999999")).status, 404);
+  const before = (await (await request(url, "/api/team")).json()).matches.find(
+    (value) => value.id === match.id,
+  );
+  assert.equal(new URL(before.venueMapsUrl).hostname, "www.google.com");
+  assert.match(
+    new URL(before.venueMapsUrl).searchParams.get("query"),
+    /Comunidad de Madrid/,
+  );
   assert.equal(
     (await (await request(url, `/api/weather?matchId=${match.id}`)).json())
       .available,
@@ -256,6 +264,13 @@ test("weather is limited to the configured team's matches and only an authentica
   assert.equal(value.temperature, 0);
   assert.equal(value.rainProbability, 0);
   assert.equal(calls, 1);
+  const after = (await (await request(url, "/api/team")).json()).matches.find(
+    (value) => value.id === match.id,
+  );
+  assert.equal(
+    new URL(after.venueMapsUrl).searchParams.get("query"),
+    "40.4,-3.7",
+  );
   const reopened = new WeatherLocations({ directory });
   assert.equal((await reopened.saved(match)).longitude, -3.7);
 });
