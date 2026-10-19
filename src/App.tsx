@@ -446,15 +446,15 @@ export default function App() {
                       : sections.find((s) => s.id === view)?.title}
                     <span>.</span>
                   </h1>
-                  <p>
-                    {view === "overview"
-                      ? "Lo que necesitas saber, antes de ir al campo."
-                      : view === "calendar"
+                  {view !== "overview" && (
+                    <p>
+                      {view === "calendar"
                         ? "Organiza el finde. Y el siguiente."
                         : view === "standings"
                           ? "Cada jornada cuenta. Así va la temporada."
                           : "Los protagonistas de cada jornada."}
-                  </p>
+                    </p>
+                  )}
                 </div>
                 <button
                   className="secondary refresh"
