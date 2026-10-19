@@ -123,7 +123,7 @@ const path = require("node:path");
       })),
       { other: 403, search: 401, write: 401 },
     );
-    await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
+    await page.screenshot({ path: "test-results/desktop.png", fullPage: false });
     const nav = page.getByRole("navigation", {
       name: "Principal",
       exact: true,

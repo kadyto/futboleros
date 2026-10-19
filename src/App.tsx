@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import type { Match, Snapshot, Standing, Team } from "./types";
+import Brand from "./Brand";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -302,15 +303,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenu ? "open" : ""}`}>
-        <a className="brand" href="/" aria-label="Futboleros, inicio">
-          <span className="brand-mark">
-            f<span>.</span>
-          </span>
-          <span>
-            futboleros<span className="brand-dot">.</span>
-          </span>
-        </a>
-        <div className="sidebar-kicker">EN LA BANDA, CONTIGO</div>
+        <Brand variant="sidebar" />
         <div className="team-selector public-team-label">
           <div className="small-team-icon">
             <Shield size={22} />
@@ -336,10 +329,6 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="field-art" aria-hidden="true">
-            <div />
-            <span>El mejor plan del finde.</span>
-          </div>
           <div className="quiet-note">
             <Shield size={16} />
             <span>Solo fútbol. Sin anuncios.</span>
@@ -367,9 +356,7 @@ export default function App() {
             >
               <Menu size={22} />
             </button>
-            <strong>
-              futboleros<span>.</span>
-            </strong>
+            <Brand variant="mobile" />
           </div>
           <div className="breadcrumb">
             <span>Tu temporada</span>

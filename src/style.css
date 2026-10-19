@@ -90,33 +90,8 @@ p {
   font-weight: 800;
   letter-spacing: -1.2px;
 }
-.brand-mark {
-  height: 35px;
-  width: 35px;
-  background: var(--green);
-  color: var(--lime);
-  border-radius: 10px;
-  font-size: 32px;
-  line-height: 37px;
-  padding-left: 11px;
-  font-weight: 800;
-  position: relative;
-}
-.brand-mark span {
-  font-size: 23px;
-  position: absolute;
-  right: 7px;
-  bottom: 0;
-}
 .brand-dot {
   color: #84a741;
-}
-.sidebar-kicker {
-  font-size: 8px;
-  letter-spacing: 2.5px;
-  margin: 13px 0 35px 46px;
-  color: #8a8f81;
-  font-weight: 600;
 }
 .team-selector {
   border: 1px solid var(--line);
@@ -191,52 +166,6 @@ p {
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 45px;
-}
-.field-art {
-  height: 137px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #f1f4e9;
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.field-art > div {
-  position: absolute;
-  border: 1px solid #d5ddc8;
-  width: 165px;
-  height: 95px;
-  border-radius: 4px;
-  transform: rotate(-14deg);
-  top: 8px;
-  left: 16px;
-}
-.field-art > div:before {
-  content: "";
-  position: absolute;
-  border: 1px solid #d5ddc8;
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  left: 58px;
-  top: 23px;
-}
-.field-art > div:after {
-  content: "";
-  height: 100%;
-  width: 1px;
-  background: #d5ddc8;
-  position: absolute;
-  left: 80px;
-}
-.field-art > span {
-  position: absolute;
-  bottom: 14px;
-  background: #f1f4e9;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
-  color: #7d8969;
 }
 .quiet-note {
   display: flex;
@@ -1572,18 +1501,6 @@ td.points {
     font-size: 20px;
     gap: 7px;
   }
-  .brand-mark {
-    width: 30px;
-    height: 32px;
-    font-size: 27px;
-    line-height: 33px;
-    padding-left: 9px;
-  }
-  .sidebar-kicker {
-    font-size: 6px;
-    letter-spacing: 2px;
-    margin-left: 38px;
-  }
   .team-selector {
     padding: 10px 7px;
     gap: 7px;
@@ -1600,9 +1517,6 @@ td.points {
   .sidebar nav button {
     font-size: 11px;
     padding: 13px 10px;
-  }
-  .field-art > div {
-    left: 0;
   }
   .sidebar-bottom .quiet-note {
     font-size: 9px;
@@ -1704,9 +1618,6 @@ td.points {
   .sidebar .brand {
     font-size: 25px;
   }
-  .sidebar .sidebar-kicker {
-    font-size: 8px;
-  }
   .sidebar nav button {
     font-size: 13px;
   }
@@ -1734,13 +1645,6 @@ td.points {
     display: flex;
     align-items: center;
     gap: 9px;
-  }
-  .mobile-brand > strong {
-    font-size: 21px;
-    letter-spacing: -0.8px;
-  }
-  .mobile-brand > strong > span {
-    color: #8caa52;
   }
   .breadcrumb {
     display: none;
@@ -2284,5 +2188,110 @@ td.points {
   }
   .search-results > button > span > small {
     font-size: 10px;
+  }
+}
+
+/* Shared identity: illustrated crest with a compact wordmark. */
+.brand .brand-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.brand .brand-name {
+  line-height: 1;
+  white-space: nowrap;
+  font-weight: 850;
+  letter-spacing: -1.2px;
+}
+.brand.brand--sidebar {
+  flex-direction: column;
+  gap: 3px;
+  margin: -12px 0 28px;
+}
+.brand--sidebar .brand-logo {
+  width: 166px;
+  height: 150px;
+}
+.brand--sidebar .brand-name {
+  font-size: 27px;
+}
+.brand.brand--header {
+  gap: 10px;
+}
+.brand--header .brand-logo {
+  width: 84px;
+  height: 70px;
+}
+.brand--header .brand-name {
+  font-size: 27px;
+}
+.brand.brand--mobile {
+  gap: 5px;
+}
+.brand--mobile .brand-logo {
+  width: 40px;
+  height: 40px;
+}
+.brand--mobile .brand-name {
+  font-size: 18px;
+  letter-spacing: -0.8px;
+}
+@media (min-width: 651px) and (max-width: 900px) {
+  .brand--sidebar .brand-logo {
+    width: 142px;
+    height: 128px;
+  }
+  .brand--sidebar .brand-name {
+    font-size: 24px;
+  }
+}
+@media (max-width: 650px) {
+  .brand--header .brand-logo {
+    width: 52px;
+    height: 48px;
+  }
+  .brand--header .brand-name {
+    font-size: 20px;
+    letter-spacing: -0.9px;
+  }
+  .brand.brand--header {
+    gap: 6px;
+  }
+  .brand.brand--sidebar {
+    margin-top: -13px;
+    margin-bottom: 25px;
+  }
+  .brand--sidebar .brand-logo {
+    width: 160px;
+    height: 142px;
+  }
+  .mobile-brand {
+    gap: 5px;
+  }
+}
+@media (max-width: 380px) {
+  .brand--mobile .brand-logo {
+    width: 30px;
+    height: 32px;
+  }
+  .brand--mobile .brand-name {
+    font-size: 16px;
+  }
+  .topbar {
+    padding-inline: 12px;
+  }
+  .topbar-right {
+    gap: 4px;
+  }
+  .season-chip {
+    font-size: 7px;
+    padding: 6px;
+  }
+  .brand--header .brand-logo {
+    width: 40px;
+    height: 40px;
+  }
+  .brand--header .brand-name {
+    font-size: 18px;
   }
 }

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Snapshot, Team } from "./types";
 import "./admin.css";
+import Brand from "./Brand";
 
 type PublicTeam = Pick<Team, "id" | "name" | "category">;
 type Config = { team: PublicTeam | null; updatedAt: string | null };
@@ -228,14 +229,7 @@ export default function Admin() {
   return (
     <div className="admin-page">
       <header className="admin-topbar">
-        <a className="brand" href="/">
-          <span className="brand-mark">
-            f<span>.</span>
-          </span>
-          <span>
-            futboleros<span className="brand-dot">.</span>
-          </span>
-        </a>
+        <Brand />
         <a className="secondary" href="/">
           <ArrowLeft size={15} />
           Ver web pública
