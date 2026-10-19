@@ -1,5 +1,7 @@
 import type { Match, Standing } from "./types";
-import { estimateMatch } from "./match-insights";
+import { estimateMatch, findStanding } from "./match-insights";
+import FederationLink from "./FederationLink";
+import { teamProfileUrl } from "./federation-links";
 
 function percent(value: number) {
   return value === 0 ? "<1 %" : value === 100 ? ">99 %" : `${value} %`;
@@ -33,7 +35,15 @@ export default function MatchForecast({
             >
               <span>Gana local</span>
               <strong>{percent(forecast.home)}</strong>
-              <small>{match.home}</small>
+              <small>
+                <FederationLink
+                  href={teamProfileUrl(
+                    match.homeId ?? findStanding(standings, match.home)?.teamId,
+                  )}
+                >
+                  {match.home}
+                </FederationLink>
+              </small>
             </div>
             <div
               className="forecast-draw"
@@ -48,7 +58,15 @@ export default function MatchForecast({
             >
               <span>Gana visitante</span>
               <strong>{percent(forecast.away)}</strong>
-              <small>{match.away}</small>
+              <small>
+                <FederationLink
+                  href={teamProfileUrl(
+                    match.awayId ?? findStanding(standings, match.away)?.teamId,
+                  )}
+                >
+                  {match.away}
+                </FederationLink>
+              </small>
             </div>
           </div>
           <div className="forecast-bar" aria-hidden="true">

@@ -58,7 +58,12 @@ export function parseTeam(raw, id) {
 export function parseSquad(raw) {
   return (Array.isArray(raw?.jugadores_equipo) ? raw.jugadores_equipo : [])
     .filter((p) => clean(p.nombre))
-    .map((p) => ({ name: clean(p.nombre) }));
+    .map((p) => ({
+      name: clean(p.nombre),
+      ...(/^[1-9]\d{0,11}$/.test(String(p.cod_jugador))
+        ? { sourceUrl: `https://www.rffm.es/fichajugador/${p.cod_jugador}` }
+        : {}),
+    }));
 }
 export function parseStandings(raw) {
   if (!raw || !Array.isArray(raw.clasificacion))

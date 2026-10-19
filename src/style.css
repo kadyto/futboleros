@@ -959,6 +959,7 @@ td.points {
   padding: 0 22px 22px;
 }
 .player-card {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 20px 15px;
@@ -997,6 +998,40 @@ td.points {
   font-size: 9px;
   color: #a1aa92;
   margin-top: 5px;
+}
+.federation-link {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-style: dotted;
+}
+.federation-link:hover {
+  text-decoration-style: solid;
+}
+.next-match .federation-link:focus-visible {
+  outline-color: var(--lime);
+}
+.player-profile-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+}
+.player-profile-link > svg {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.player-card:has(.player-profile-link):hover {
+  border-color: #b0c68f;
+  background: #f6f9f0;
+}
+.player-profile-link:focus-visible {
+  outline: none;
+}
+.player-profile-link:focus-visible::after {
+  outline: 3px solid #7ca633;
+  outline-offset: 3px;
 }
 .empty {
   display: flex;

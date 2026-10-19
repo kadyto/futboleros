@@ -16,6 +16,8 @@ export function fakeProvider() {
       }
       const value = demoSnapshot();
       value.team.id = id;
+      value.team.sourceUrl = `https://www.rffm.es/fichaequipo/${id}`;
+      value.squad[0].sourceUrl = "https://www.rffm.es/fichajugador/5001";
       if (id === "1002") {
         value.team.name = "C.D. Olivares Infantil A";
         value.team.category = "Infantil F-11";
@@ -29,12 +31,20 @@ export function fakeProvider() {
           m.awayId = id;
           m.away = value.team.name;
         }
+        for (const field of ["homeId", "awayId"]) {
+          if (m[field].startsWith("example-"))
+            m[field] = String(2000 + Number(m[field].slice("example-".length)));
+        }
       }
-      for (const row of value.standings)
+      for (const row of value.standings) {
         if (row.teamId === "demo") {
           row.teamId = id;
           row.team = value.team.name;
-        }
+        } else if (row.teamId.startsWith("example-"))
+          row.teamId = String(
+            2000 + Number(row.teamId.slice("example-".length)),
+          );
+      }
       delete value.demo;
       return value;
     },

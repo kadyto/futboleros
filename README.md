@@ -7,6 +7,7 @@ Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, 
 - Configurar un equipo de la Federación de Fútbol de Madrid desde un panel protegido con contraseña, buscando el club o pegando su ficha.
 - Ver en la portada el próximo encuentro, el último resultado y la posición en la liga.
 - Consultar el calendario completo, los resultados, la clasificación y la plantilla pública.
+- Abrir las fichas de jugadores y equipos en la federación desde sus nombres; los enlaces se abren en otra pestaña cuando hay un identificador público válido.
 - Ver la posición actual junto a cada equipo en los partidos y una estimación orientativa de victoria local, empate y victoria visitante en el próximo encuentro.
 - Exportar los partidos pendientes a un archivo de calendario `.ics`.
 - Compartir el enlace público: todos ven el equipo configurado y nadie puede cambiarlo sin iniciar sesión.
@@ -58,7 +59,7 @@ La caché dura 15 minutos y se guarda en `/data`. **Actualizar** vuelve a consul
 
 El índice de grupos se conserva durante 24 horas por temporada y categoría. Las consultas al origen se limitan a cuatro simultáneas y se comparten cuando varios usuarios piden el mismo equipo. Solo se consulta la categoría necesaria, no se descarga toda la federación.
 
-La plantilla incluye únicamente los nombres deportivos publicados. Se descartan fotografías, fechas de nacimiento, identificadores de jugadores, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. No hay analítica, publicidad, fuentes remotas ni servicios externos en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
+La plantilla incluye los nombres deportivos publicados y el enlace a la ficha pública del jugador, construido con su identificador federativo. No se guarda ese identificador como un campo independiente. Se descartan fotografías, fechas de nacimiento, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. Los equipos tienen enlaces a sus fichas en los partidos y la clasificación. Si falta un identificador válido, el nombre se muestra sin enlace; no se adivinan fichas a partir de nombres. Los enlaces abren la web de la federación en otra pestaña. No hay analítica, publicidad, fuentes remotas ni servicios externos cargados en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
 
 La administración usa una contraseña definida en el servidor y sesiones con cookies `HttpOnly` y `SameSite=Strict`. Las sesiones duran 12 horas, se invalidan al cerrar sesión y no sobreviven a un reinicio del servidor. Los intentos fallidos están limitados. Sin una contraseña válida, el panel queda deshabilitado; una configuración pública ya guardada continúa disponible.
 

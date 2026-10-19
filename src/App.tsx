@@ -23,6 +23,8 @@ import Brand from "./Brand";
 import TeamPosition from "./TeamPosition";
 import MatchForecast from "./MatchForecast";
 import { findStanding, hasPosition } from "./match-insights";
+import FederationLink from "./FederationLink";
+import { teamProfileUrl, playerProfileUrl } from "./federation-links";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -109,7 +111,13 @@ function MatchRow({
         <div className={ours(m, team) ? "our-team" : ""}>
           <Crest name={m.home} />
           <span className="match-team-name">
-            {m.home}
+            <FederationLink
+              href={teamProfileUrl(
+                m.homeId ?? findStanding(standings, m.home)?.teamId,
+              )}
+            >
+              {m.home}
+            </FederationLink>
             <TeamPosition
               standing={findStanding(standings, m.home, m.homeId)}
             />
@@ -119,7 +127,13 @@ function MatchRow({
         <div className={!ours(m, team) ? "our-team" : ""}>
           <Crest name={m.away} />
           <span className="match-team-name">
-            {m.away}
+            <FederationLink
+              href={teamProfileUrl(
+                m.awayId ?? findStanding(standings, m.away)?.teamId,
+              )}
+            >
+              {m.away}
+            </FederationLink>
             <TeamPosition
               standing={findStanding(standings, m.away, m.awayId)}
             />
@@ -195,7 +209,11 @@ function LeagueTable({
               <td>
                 <div className="table-team">
                   <Crest name={row.team} />
-                  <span>{row.team}</span>
+                  <span>
+                    <FederationLink href={teamProfileUrl(row.teamId)}>
+                      {row.team}
+                    </FederationLink>
+                  </span>
                   {sameTeam(row.team, row.teamId, team) && (
                     <span className="you-tag">TU EQUIPO</span>
                   )}
@@ -344,7 +362,11 @@ export default function App() {
           </div>
           <span>
             <small>EQUIPO DE ESTA WEB</small>
-            <strong>{team?.name || "Pendiente de configurar"}</strong>
+            <strong>
+              <FederationLink href={teamProfileUrl(team?.id)}>
+                {team?.name || "Pendiente de configurar"}
+              </FederationLink>
+            </strong>
             {team && <TeamPosition standing={position} />}
           </span>
         </div>
@@ -505,7 +527,11 @@ export default function App() {
                 <div>
                   <small>TU EQUIPO</small>
                   <div className="team-banner-heading">
-                    <h2>{team!.name}</h2>
+                    <h2>
+                      <FederationLink href={teamProfileUrl(team!.id)}>
+                        {team!.name}
+                      </FederationLink>
+                    </h2>
                     <TeamPosition standing={position} />
                   </div>
                   <p>
@@ -554,7 +580,15 @@ export default function App() {
                           <div className="matchup">
                             <div>
                               <Crest name={next.home} large />
-                              <h3>{next.home}</h3>
+                              <h3>
+                                <FederationLink
+                                  href={teamProfileUrl(
+                                    next.homeId ?? nextHomePosition?.teamId,
+                                  )}
+                                >
+                                  {next.home}
+                                </FederationLink>
+                              </h3>
                               <TeamPosition standing={nextHomePosition} />
                               <small>
                                 {ours(next, team!)
@@ -568,7 +602,15 @@ export default function App() {
                             </div>
                             <div>
                               <Crest name={next.away} large />
-                              <h3>{next.away}</h3>
+                              <h3>
+                                <FederationLink
+                                  href={teamProfileUrl(
+                                    next.awayId ?? nextAwayPosition?.teamId,
+                                  )}
+                                >
+                                  {next.away}
+                                </FederationLink>
+                              </h3>
                               <TeamPosition standing={nextAwayPosition} />
                               <small>
                                 {!ours(next, team!)
@@ -817,7 +859,17 @@ export default function App() {
                             {player.number && <span>{player.number}</span>}
                           </div>
                           <div>
-                            <h3>{player.name}</h3>
+                            <h3>
+                              <FederationLink
+                                href={playerProfileUrl(player.sourceUrl)}
+                                className="player-profile-link"
+                              >
+                                {player.name}
+                                {playerProfileUrl(player.sourceUrl) && (
+                                  <ExternalLink size={12} aria-hidden="true" />
+                                )}
+                              </FederationLink>
+                            </h3>
                             <p>{player.role || "Jugador/a"}</p>
                           </div>
                         </article>

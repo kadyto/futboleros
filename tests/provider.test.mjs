@@ -18,7 +18,31 @@ test("normalizes the public team, roster, dates and 0-0 scores without exporting
   const team = parseTeam(rawTeam, "1001");
   assert.equal(team.name, "C.D. Olivares A");
   assert.equal(team.email_correspondencia, undefined);
-  assert.deepEqual(parseSquad(rawTeam), [{ name: "Jugador de ejemplo" }]);
+  assert.deepEqual(parseSquad(rawTeam), [
+    {
+      name: "Jugador de ejemplo",
+      sourceUrl: "https://www.rffm.es/fichajugador/5001",
+    },
+  ]);
+  for (const invalid of [
+    undefined,
+    "",
+    "-1",
+    "0",
+    "123/456",
+    "javascript:alert(1)",
+    "https://example.com",
+    "1234567890123",
+  ]) {
+    assert.deepEqual(
+      parseSquad({
+        jugadores_equipo: [
+          { ...rawTeam.jugadores_equipo[0], cod_jugador: invalid },
+        ],
+      }),
+      [{ name: "Jugador de ejemplo" }],
+    );
+  }
   const matches = parseMatches(rawCalendar, "1001");
   assert.equal(matches.length, 2);
   assert.equal(matches[0].status, "played");

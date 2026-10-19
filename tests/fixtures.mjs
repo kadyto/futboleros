@@ -7,7 +7,7 @@ export const rawTeam = {
   jugadores_equipo: [
     {
       nombre: "Jugador de ejemplo",
-      cod_jugador: "private-id",
+      cod_jugador: "5001",
       fecha_nacimiento: "private-date",
     },
   ],

@@ -36,6 +36,7 @@ export interface Standing {
 }
 export interface Player {
   name: string;
+  sourceUrl?: string;
   number?: string;
   role?: string;
 }

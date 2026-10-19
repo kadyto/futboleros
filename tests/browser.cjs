@@ -39,6 +39,27 @@ const path = require("node:path");
       ),
     );
     const page = await publicContext.newPage();
+    await publicContext.route(
+      /^https:\/\/www\.rffm\.es\/ficha(?:equipo|jugador)\/\d+$/,
+      (route) =>
+        route.fulfill({
+          contentType: "text/html",
+          body: "<!doctype html><title>Ficha de prueba</title><h1>Ficha de prueba</h1>",
+        }),
+    );
+    async function openProfile(link, expected, card) {
+      assert.equal(await link.getAttribute("href"), expected);
+      assert.equal(await link.getAttribute("target"), "_blank");
+      assert.match(await link.getAttribute("rel"), /noopener/);
+      const opened = page.waitForEvent("popup");
+      if (card) await card.click({ position: { x: 8, y: 8 } });
+      else await link.click();
+      const popup = await opened;
+      await popup.waitForLoadState("domcontentloaded");
+      assert.equal(popup.url(), expected);
+      assert.equal(await popup.evaluate(() => window.opener === null), true);
+      await popup.close();
+    }
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(base);
     await page
@@ -105,6 +126,18 @@ const path = require("node:path");
       await page.locator(".matchup .team-position").allTextContents(),
       ["7.º actual", "3.º actual"],
     );
+    await openProfile(
+      page.locator(".matchup h3 a").first(),
+      "https://www.rffm.es/fichaequipo/2006",
+    );
+    assert.equal(
+      await page
+        .locator(".results-panel .match-row")
+        .first()
+        .getByRole("link", { name: "Deportivo Norte", exact: true })
+        .getAttribute("href"),
+      "https://www.rffm.es/fichaequipo/2005",
+    );
     const chances = await page
       .locator(".forecast-outcomes strong")
       .allTextContents();
@@ -168,6 +201,14 @@ const path = require("node:path");
         .allTextContents(),
       ["7.º actual", "3.º actual"],
     );
+    assert.equal(
+      await page
+        .locator(".match-row")
+        .first()
+        .getByRole("link", { name: "Escuela Río Verde", exact: true })
+        .getAttribute("href"),
+      "https://www.rffm.es/fichaequipo/2006",
+    );
     const download = page.waitForEvent("download");
     await page.getByRole("link", { name: "Exportar calendario" }).click();
     assert.match((await download).suggestedFilename(), /\.ics$/);
@@ -185,8 +226,36 @@ const path = require("node:path");
       .getByRole("button", { name: "Clasificación", exact: true })
       .click();
     assert.equal(await page.locator("tbody tr").count(), 8);
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Atlético del Parque", exact: true })
+        .getAttribute("href"),
+      "https://www.rffm.es/fichaequipo/2001",
+    );
     await nav.getByRole("button", { name: "Plantilla", exact: true }).click();
     assert.equal(await page.locator(".player-card").count(), 12);
+    assert.equal(await page.locator(".player-profile-link").count(), 1);
+    assert.equal(
+      await page.locator(".player-card").nth(1).getByRole("link").count(),
+      0,
+    );
+    await openProfile(
+      page.getByRole("link", { name: "Jugador de ejemplo 1", exact: true }),
+      "https://www.rffm.es/fichajugador/5001",
+      page.locator(".player-card").first(),
+    );
+    await page.screenshot({
+      path: "test-results/squad-desktop.png",
+      fullPage: false,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    );
+    await page.screenshot({
+      path: "test-results/squad-mobile.png",
+      fullPage: true,
+    });
     await page.reload();
     await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
     for (const width of [320, 360, 768]) {
@@ -277,6 +346,12 @@ const path = require("node:path");
       const response = await route.fetch();
       const snapshot = await response.json();
       snapshot.standings = [];
+      for (const match of snapshot.matches) {
+        delete match.homeId;
+        delete match.awayId;
+      }
+      snapshot.squad[0].sourceUrl = "javascript:alert(1)";
+      snapshot.squad[1].sourceUrl = "https://example.invalid/fichajugador/5001";
       await route.fulfill({ response, json: snapshot });
     });
     await page.reload();
@@ -287,11 +362,16 @@ const path = require("node:path");
       await page.locator(".matchup .team-position").allTextContents(),
       ["Sin posición", "Sin posición"],
     );
+    assert.equal(await page.locator(".matchup h3 a").count(), 0);
+    await mobileNav
+      .getByRole("button", { name: "Plantilla", exact: true })
+      .click();
+    assert.equal(await page.locator(".player-card a").count(), 0);
     assert.deepEqual(errors, []);
     await publicContext.close();
     await adminContext.close();
     console.log(
-      "Browser checks passed: admin flow, locked public team, current positions, match estimates and missing data, four views, ICS, persistence, logout and mobile layouts.",
+      "Browser checks passed: admin flow, locked public team, current positions, estimates, player and team profile links, missing data, four views, ICS, persistence, logout and mobile layouts.",
     );
   } finally {
     await browser.close();
