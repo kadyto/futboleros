@@ -31,6 +31,72 @@ test("coalesces concurrent requests and restores persisted snapshots after resta
   assert.equal(calls, 1);
   await assert.rejects(() => c.get("../secret"), /válido/);
 });
+test("refreshes a recent legacy snapshot immediately so player links appear after an upgrade", async (t) => {
+  const dir = await directory(t);
+  const legacy = snapshot();
+  legacy.squad = [{ name: "Jugador de ejemplo" }];
+  await writeFile(path.join(dir, "1001.json"), JSON.stringify(legacy));
+  let calls = 0;
+  const cache = new SnapshotCache({
+    directory: dir,
+    loader: async () => {
+      calls++;
+      return {
+        ...snapshot(),
+        squad: [
+          {
+            name: "Jugador de ejemplo",
+            sourceUrl: "https://www.rffm.es/fichajugador/5001",
+          },
+        ],
+      };
+    },
+  });
+  const values = await Promise.all([cache.get("1001"), cache.get("1001")]);
+  assert.equal(calls, 1);
+  assert.equal(
+    values[0].squad[0].sourceUrl,
+    "https://www.rffm.es/fichajugador/5001",
+  );
+  assert.equal(values[0].stale, false);
+  assert.equal("cacheVersion" in values[0], false);
+  const restored = new SnapshotCache({
+    directory: dir,
+    loader: async () => {
+      throw Error("should reuse upgraded cache");
+    },
+  });
+  assert.equal(
+    (await restored.get("1001")).squad[0].sourceUrl,
+    values[0].squad[0].sourceUrl,
+  );
+});
+test("keeps legacy data marked stale during an outage, limits retries, then upgrades it", async (t) => {
+  const dir = await directory(t);
+  const legacy = snapshot();
+  legacy.squad = [{ name: "Jugador de ejemplo" }];
+  let now = Date.parse(legacy.updatedAt),
+    calls = 0,
+    fail = true;
+  await writeFile(path.join(dir, "1001.json"), JSON.stringify(legacy));
+  const cache = new SnapshotCache({
+    directory: dir,
+    clock: () => now,
+    retryDelay: 500,
+    loader: async () => {
+      calls++;
+      if (fail) throw Error("upstream outage");
+      return snapshot();
+    },
+  });
+  assert.equal((await cache.get("1001")).stale, true);
+  assert.equal((await cache.get("1001")).stale, true);
+  assert.equal(calls, 1);
+  now += 501;
+  fail = false;
+  assert.equal((await cache.get("1001")).stale, false);
+  assert.equal(calls, 2);
+});
 test("labels stale data during an upstream outage, waits before retry, then recovers", async (t) => {
   const dir = await directory(t);
   let now = 1000000,

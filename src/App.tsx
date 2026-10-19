@@ -24,7 +24,8 @@ import TeamPosition from "./TeamPosition";
 import MatchForecast from "./MatchForecast";
 import { findStanding, hasPosition } from "./match-insights";
 import FederationLink from "./FederationLink";
-import { teamProfileUrl, playerProfileUrl } from "./federation-links";
+import { teamProfileUrl, matchReportUrl } from "./federation-links";
+import PlayerCard from "./PlayerCard";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -86,14 +87,17 @@ function MatchRow({
   match: m,
   team,
   standings,
+  showReport = false,
 }: {
   match: Match;
   team: Team;
   standings: Standing[];
+  showReport?: boolean;
 }) {
   const r = result(m, team);
+  const reportUrl = matchReportUrl(m.id);
   return (
-    <div className="match-row">
+    <div className={`match-row${showReport ? " match-row--report" : ""}`}>
       <div className="match-date">
         <span>{m.round ? `JORNADA ${m.round}` : "PARTIDO"}</span>
         <strong>{displayDate(m.date)}</strong>
@@ -150,11 +154,27 @@ function MatchRow({
             {r}
           </span>
         ) : (
-          <>
+          <span className="match-venue">
             <MapPin size={14} />
             <span>{m.venue || "Campo por confirmar"}</span>
-          </>
+          </span>
         )}
+        {showReport &&
+          (reportUrl ? (
+            <FederationLink
+              href={reportUrl}
+              className="match-report-link"
+              title={
+                isPlayed(m)
+                  ? "Ver acta en la federación (se abre en otra pestaña)"
+                  : "Ver partido en la federación; el acta se publicará cuando esté disponible (se abre en otra pestaña)"
+              }
+            >
+              Ver acta <ExternalLink size={12} aria-hidden="true" />
+            </FederationLink>
+          ) : (
+            <span className="match-report-unavailable">Acta no disponible</span>
+          ))}
       </div>
     </div>
   );
@@ -798,6 +818,7 @@ export default function App() {
                       match={m}
                       team={team!}
                       standings={data.standings}
+                      showReport
                     />
                   ))}
                   {!(
@@ -850,29 +871,10 @@ export default function App() {
                   {data.squad.length ? (
                     <div className="squad-grid">
                       {data.squad.map((player, i) => (
-                        <article
-                          className="player-card"
+                        <PlayerCard
+                          player={player}
                           key={`${player.name}-${i}`}
-                        >
-                          <div className="player-avatar">
-                            <Users size={24} />
-                            {player.number && <span>{player.number}</span>}
-                          </div>
-                          <div>
-                            <h3>
-                              <FederationLink
-                                href={playerProfileUrl(player.sourceUrl)}
-                                className="player-profile-link"
-                              >
-                                {player.name}
-                                {playerProfileUrl(player.sourceUrl) && (
-                                  <ExternalLink size={12} aria-hidden="true" />
-                                )}
-                              </FederationLink>
-                            </h3>
-                            <p>{player.role || "Jugador/a"}</p>
-                          </div>
-                        </article>
+                        />
                       ))}
                     </div>
                   ) : (

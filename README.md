@@ -8,6 +8,7 @@ Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, 
 - Ver en la portada el próximo encuentro, el último resultado y la posición en la liga.
 - Consultar el calendario completo, los resultados, la clasificación y la plantilla pública.
 - Abrir las fichas de jugadores y equipos en la federación desde sus nombres; los enlaces se abren en otra pestaña cuando hay un identificador público válido.
+- Abrir «Ver acta» junto a cada partido del calendario, en Próximos, Resultados y Todos. Antes del encuentro se abre su ficha; el contenido del acta depende de lo que publique la federación. Si todavía no hay identificador, se indica «Acta no disponible».
 - Ver la posición actual junto a cada equipo en los partidos y una estimación orientativa de victoria local, empate y victoria visitante en el próximo encuentro.
 - Exportar los partidos pendientes a un archivo de calendario `.ics`.
 - Compartir el enlace público: todos ven el equipo configurado y nadie puede cambiarlo sin iniciar sesión.
@@ -56,6 +57,8 @@ La exportación `.ics` es una copia de los partidos publicados: importarla no su
 ## Datos y privacidad
 
 La caché dura 15 minutos y se guarda en `/data`. **Actualizar** vuelve a consultar la API de la aplicación respetando ese intervalo para no saturar el origen. Si la federación falla y hay una copia anterior, se muestra con un aviso y su fecha de consulta; si no hay copia, se muestra el error y se permite reintentar.
+
+Las copias guardadas con un formato anterior se renuevan en la primera consulta tras actualizar la aplicación, sin esperar al intervalo habitual. Esto permite recuperar los enlaces de jugadores que no se guardaban en versiones antiguas. Si falla el origen, la copia anterior se conserva con el aviso de datos desactualizados. No es necesario borrar el volumen ni volver a configurar el equipo. La tarjeta completa del jugador funciona como enlace; si no hay una ficha pública válida, se muestra «Ficha no disponible».
 
 El índice de grupos se conserva durante 24 horas por temporada y categoría. Las consultas al origen se limitan a cuatro simultáneas y se comparten cuando varios usuarios piden el mismo equipo. Solo se consulta la categoría necesaria, no se descarga toda la federación.
 

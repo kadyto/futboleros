@@ -4,10 +4,14 @@ export default function FederationLink({
   href,
   children,
   className = "",
+  title = "Ver ficha en la federación (se abre en otra pestaña)",
+  ariaLabel,
 }: {
   href?: string;
   children: ReactNode;
   className?: string;
+  title?: string;
+  ariaLabel?: string;
 }) {
   return href ? (
     <a
@@ -15,7 +19,8 @@ export default function FederationLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      title="Ver ficha en la federación (se abre en otra pestaña)"
+      title={title}
+      aria-label={ariaLabel}
     >
       {children}
     </a>

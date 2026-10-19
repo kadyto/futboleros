@@ -23,6 +23,7 @@ export function fakeProvider() {
         value.team.category = "Infantil F-11";
       }
       for (const m of value.matches) {
+        m.id = String(3000 + m.round);
         if (m.homeId === "demo") {
           m.homeId = id;
           m.home = value.team.name;

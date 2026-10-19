@@ -12,3 +12,10 @@ export function playerProfileUrl(sourceUrl?: string) {
     ? sourceUrl
     : undefined;
 }
+
+export function matchReportUrl(id: string) {
+  // The provider uses codacta as the ID; synthetic fallback IDs contain hyphens.
+  return /^[1-9]\d{0,11}$/.test(id)
+    ? `${origin}/acta-partido/${id}`
+    : undefined;
+}

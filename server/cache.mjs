@@ -1,6 +1,12 @@
 import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+export const CACHE_SCHEMA_VERSION = 1;
+
+function publicSnapshot({ cacheVersion, ...value }, stale) {
+  return { ...value, stale };
+}
+
 export class SnapshotCache {
   constructor({
     directory,
@@ -46,15 +52,19 @@ export class SnapshotCache {
       }
       if (old) this.memory.set(id, old);
     }
-    if (old && this.clock() - Date.parse(old.updatedAt) < this.ttl)
-      return { ...old, stale: false };
+    if (
+      old?.cacheVersion === CACHE_SCHEMA_VERSION &&
+      this.clock() - Date.parse(old.updatedAt) < this.ttl
+    )
+      return publicSnapshot(old, false);
     if (old && this.clock() < (this.retryAt.get(id) || 0))
-      return { ...old, stale: true };
+      return publicSnapshot(old, true);
     try {
       const fresh = {
         ...(await this.loader(id)),
         updatedAt: new Date(this.clock()).toISOString(),
         stale: false,
+        cacheVersion: CACHE_SCHEMA_VERSION,
       };
       const tmp = path.join(this.directory, `${id}.${randomUUID()}.tmp`);
       try {
@@ -67,11 +77,11 @@ export class SnapshotCache {
       }
       this.memory.set(id, fresh);
       this.retryAt.delete(id);
-      return fresh;
+      return publicSnapshot(fresh, false);
     } catch (e) {
       if (old) {
         this.retryAt.set(id, this.clock() + this.retryDelay);
-        return { ...old, stale: true };
+        return publicSnapshot(old, true);
       }
       throw e;
     }

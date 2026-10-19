@@ -9,6 +9,9 @@ const path = require("node:path");
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), "futboleros-browser-"),
   );
+  const legacy = await fakeProvider().snapshot("1001");
+  for (const player of legacy.squad) delete player.sourceUrl;
+  await fs.writeFile(path.join(directory, "1001.json"), JSON.stringify(legacy));
   const server = createApp({
     directory,
     provider: fakeProvider(),
@@ -28,6 +31,7 @@ const path = require("node:path");
       viewport: { width: 1440, height: 1050 },
       acceptDownloads: true,
       reducedMotion: "reduce",
+      hasTouch: true,
     });
     await publicContext.addInitScript(() =>
       localStorage.setItem(
@@ -40,19 +44,20 @@ const path = require("node:path");
     );
     const page = await publicContext.newPage();
     await publicContext.route(
-      /^https:\/\/www\.rffm\.es\/ficha(?:equipo|jugador)\/\d+$/,
+      /^https:\/\/www\.rffm\.es\/(?:ficha(?:equipo|jugador)|acta-partido)\/\d+$/,
       (route) =>
         route.fulfill({
           contentType: "text/html",
           body: "<!doctype html><title>Ficha de prueba</title><h1>Ficha de prueba</h1>",
         }),
     );
-    async function openProfile(link, expected, card) {
+    async function openProfile(link, expected, card, touch = false) {
       assert.equal(await link.getAttribute("href"), expected);
       assert.equal(await link.getAttribute("target"), "_blank");
       assert.match(await link.getAttribute("rel"), /noopener/);
       const opened = page.waitForEvent("popup");
-      if (card) await card.click({ position: { x: 8, y: 8 } });
+      if (touch) await (card || link).tap({ position: { x: 8, y: 8 } });
+      else if (card) await card.click({ position: { x: 8, y: 8 } });
       else await link.click();
       const popup = await opened;
       await popup.waitForLoadState("domcontentloaded");
@@ -193,6 +198,17 @@ const path = require("node:path");
     await page
       .getByRole("heading", { name: "Calendario.", exact: true })
       .waitFor();
+    assert.equal(
+      await page.getByRole("link", { name: "Ver acta", exact: true }).count(),
+      await page.locator(".match-row").count(),
+    );
+    await openProfile(
+      page
+        .locator(".match-row")
+        .first()
+        .getByRole("link", { name: "Ver acta", exact: true }),
+      "https://www.rffm.es/acta-partido/3006",
+    );
     assert.deepEqual(
       await page
         .locator(".match-row")
@@ -213,6 +229,22 @@ const path = require("node:path");
     await page.getByRole("link", { name: "Exportar calendario" }).click();
     assert.match((await download).suggestedFilename(), /\.ics$/);
     await page.getByRole("button", { name: "Resultados", exact: true }).click();
+    assert.equal(
+      await page.getByRole("link", { name: "Ver acta", exact: true }).count(),
+      await page.locator(".match-row").count(),
+    );
+    await openProfile(
+      page
+        .locator(".match-row")
+        .first()
+        .getByRole("link", { name: "Ver acta", exact: true }),
+      "https://www.rffm.es/acta-partido/3005",
+    );
+    await page.getByRole("button", { name: "Todos", exact: true }).click();
+    assert.equal(
+      await page.getByRole("link", { name: "Ver acta", exact: true }).count(),
+      14,
+    );
     assert.ok((await page.locator(".match-row").count()) > 0);
     assert.equal(
       await page.locator(".match-row .team-position").count(),
@@ -249,6 +281,12 @@ const path = require("node:path");
       fullPage: false,
     });
     await page.setViewportSize({ width: 390, height: 844 });
+    await openProfile(
+      page.locator(".player-profile-link"),
+      "https://www.rffm.es/fichajugador/5001",
+      undefined,
+      true,
+    );
     await page.waitForFunction(
       () => document.documentElement.scrollWidth <= innerWidth,
     );
@@ -279,6 +317,25 @@ const path = require("node:path");
     await page
       .getByRole("heading", { name: "Calendario.", exact: true })
       .waitFor();
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForFunction(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      );
+      await openProfile(
+        page
+          .locator(".match-row")
+          .first()
+          .getByRole("link", { name: "Ver acta", exact: true }),
+        "https://www.rffm.es/acta-partido/3006",
+        undefined,
+        true,
+      );
+    }
+    await page.screenshot({
+      path: "test-results/calendar-mobile.png",
+      fullPage: true,
+    });
     await mobileNav.getByRole("button", { name: "Liga", exact: true }).click();
     await page
       .getByRole("heading", { name: "Clasificación.", exact: true })
@@ -352,6 +409,8 @@ const path = require("node:path");
       }
       snapshot.squad[0].sourceUrl = "javascript:alert(1)";
       snapshot.squad[1].sourceUrl = "https://example.invalid/fichajugador/5001";
+      for (const match of snapshot.matches)
+        match.id = "missing-report-id" + match.round;
       await route.fulfill({ response, json: snapshot });
     });
     await page.reload();
@@ -366,7 +425,22 @@ const path = require("node:path");
     await mobileNav
       .getByRole("button", { name: "Plantilla", exact: true })
       .click();
-    assert.equal(await page.locator(".player-card a").count(), 0);
+    assert.equal(await page.locator(".player-profile-link").count(), 0);
+    assert.equal(
+      await page.getByText("Ficha no disponible", { exact: true }).count(),
+      12,
+    );
+    await mobileNav
+      .getByRole("button", { name: "Calendario", exact: true })
+      .click();
+    assert.equal(
+      await page.getByRole("link", { name: "Ver acta", exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await page.getByText("Acta no disponible", { exact: true }).count(),
+      await page.locator(".match-row").count(),
+    );
     assert.deepEqual(errors, []);
     await publicContext.close();
     await adminContext.close();

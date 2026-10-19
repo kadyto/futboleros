@@ -13,6 +13,7 @@ import {
   parseDate,
 } from "../server/provider.mjs";
 import { rawTeam, rawCalendar, rawStandings, page } from "./fixtures.mjs";
+import { matchReportUrl } from "../src/federation-links.ts";
 
 test("normalizes the public team, roster, dates and 0-0 scores without exporting contact data", () => {
   const team = parseTeam(rawTeam, "1001");
@@ -47,6 +48,20 @@ test("normalizes the public team, roster, dates and 0-0 scores without exporting
   assert.equal(matches.length, 2);
   assert.equal(matches[0].status, "played");
   assert.equal(matches[0].homeScore, 0);
+  assert.equal(
+    matchReportUrl(matches[0].id),
+    "https://www.rffm.es/acta-partido/3001",
+  );
+  assert.equal(
+    matchReportUrl(matches[1].id),
+    "https://www.rffm.es/acta-partido/3002",
+  );
+  const missingReport = structuredClone(rawCalendar);
+  delete missingReport.rounds[0].equipos[0].codacta;
+  assert.equal(
+    matchReportUrl(parseMatches(missingReport, "1001")[0].id),
+    undefined,
+  );
   assert.equal(matches[1].homeScore, null);
   assert.equal(matches[1].time, null);
   assert.equal(matches[1].date, "2026-10-24");

@@ -738,6 +738,33 @@ h1 > span {
   font-size: 10px;
   max-width: 160px;
 }
+.match-venue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.match-venue > svg {
+  flex-shrink: 0;
+}
+.match-row--report .match-extra {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.match-report-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green);
+  font-size: 11px;
+  padding: 5px 0;
+  white-space: nowrap;
+}
+.match-report-unavailable {
+  font-size: 10px;
+  color: #7d847c;
+}
 .results-panel .match-date {
   width: 99px;
 }
@@ -1012,26 +1039,27 @@ td.points {
 .next-match .federation-link:focus-visible {
   outline-color: var(--lime);
 }
-.player-profile-link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9px;
+.player-profile-link {
+  text-decoration: none;
 }
-.player-profile-link > svg {
+.player-profile-link h3 {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.player-profile-link h3 > svg {
   margin-left: 6px;
   vertical-align: middle;
 }
-.player-card:has(.player-profile-link):hover {
+.player-profile-link:hover {
   border-color: #b0c68f;
   background: #f6f9f0;
 }
-.player-profile-link:focus-visible {
-  outline: none;
+.player-profile-link:hover h3 {
+  text-decoration-style: solid;
 }
-.player-profile-link:focus-visible::after {
-  outline: 3px solid #7ca633;
-  outline-offset: 3px;
+.player-card .player-profile-unavailable {
+  color: #7d847c;
+  font-size: 9px;
 }
 .empty {
   display: flex;
@@ -1874,6 +1902,20 @@ td.points {
   .match-extra:has(.result) {
     width: auto;
     margin-left: 0;
+  }
+  .match-row--report .match-extra,
+  .match-row--report .match-extra:has(.result) {
+    flex: 0 0 calc(100% - 100px);
+    margin-left: 100px;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 6px;
+  }
+  .match-row--report .match-venue {
+    flex-basis: 100%;
   }
   .results-panel .match-row {
     padding: 17px 14px;
