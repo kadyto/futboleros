@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import type { Match, Snapshot, Standing, Team } from "./types";
 import Brand from "./Brand";
+import TeamPosition from "./TeamPosition";
+import MatchForecast from "./MatchForecast";
+import { findStanding, hasPosition } from "./match-insights";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -77,7 +80,15 @@ function Crest({ name, large = false }: { name: string; large?: boolean }) {
     </div>
   );
 }
-function MatchRow({ match: m, team }: { match: Match; team: Team }) {
+function MatchRow({
+  match: m,
+  team,
+  standings,
+}: {
+  match: Match;
+  team: Team;
+  standings: Standing[];
+}) {
   const r = result(m, team);
   return (
     <div className="match-row">
@@ -97,12 +108,22 @@ function MatchRow({ match: m, team }: { match: Match; team: Team }) {
       <div className="match-teams">
         <div className={ours(m, team) ? "our-team" : ""}>
           <Crest name={m.home} />
-          <span>{m.home}</span>
+          <span className="match-team-name">
+            {m.home}
+            <TeamPosition
+              standing={findStanding(standings, m.home, m.homeId)}
+            />
+          </span>
           <b>{m.homeScore ?? "–"}</b>
         </div>
         <div className={!ours(m, team) ? "our-team" : ""}>
           <Crest name={m.away} />
-          <span>{m.away}</span>
+          <span className="match-team-name">
+            {m.away}
+            <TeamPosition
+              standing={findStanding(standings, m.away, m.awayId)}
+            />
+          </span>
           <b>{m.awayScore ?? "–"}</b>
         </div>
       </div>
@@ -138,7 +159,13 @@ function LeagueTable({
       <table>
         <thead>
           <tr>
-            <th className="rank">#</th>
+            <th
+              className="rank"
+              title="Posición actual"
+              aria-label="Posición actual"
+            >
+              #
+            </th>
             <th>Equipo</th>
             <th className="points">PTS</th>
             <th>PJ</th>
@@ -163,7 +190,7 @@ function LeagueTable({
               }
             >
               <td className="rank">
-                <span>{row.position}</span>
+                <span>{hasPosition(row) ? `${row.position}.º` : "–"}</span>
               </td>
               <td>
                 <div className="table-team">
@@ -276,9 +303,16 @@ export default function App() {
           a.round - b.round,
       ) || [];
   const next = upcoming.find((m) => m.status !== "postponed") || upcoming[0];
-  const position = data?.standings.find(
-    (s) => team && sameTeam(s.team, s.teamId, team),
-  );
+  const position =
+    team && data ? findStanding(data.standings, team.name, team.id) : undefined;
+  const nextHomePosition =
+    next && data
+      ? findStanding(data.standings, next.home, next.homeId)
+      : undefined;
+  const nextAwayPosition =
+    next && data
+      ? findStanding(data.standings, next.away, next.awayId)
+      : undefined;
   const compactRows = data
     ? data.standings.slice(
         Math.max(
@@ -311,6 +345,7 @@ export default function App() {
           <span>
             <small>EQUIPO DE ESTA WEB</small>
             <strong>{team?.name || "Pendiente de configurar"}</strong>
+            {team && <TeamPosition standing={position} />}
           </span>
         </div>
         <p className="nav-label">TU TEMPORADA</p>
@@ -469,7 +504,10 @@ export default function App() {
                 <Crest name={team!.name} large />
                 <div>
                   <small>TU EQUIPO</small>
-                  <h2>{team!.name}</h2>
+                  <div className="team-banner-heading">
+                    <h2>{team!.name}</h2>
+                    <TeamPosition standing={position} />
+                  </div>
                   <p>
                     {[team!.category, team!.group, team!.season]
                       .filter(Boolean)
@@ -517,6 +555,7 @@ export default function App() {
                             <div>
                               <Crest name={next.home} large />
                               <h3>{next.home}</h3>
+                              <TeamPosition standing={nextHomePosition} />
                               <small>
                                 {ours(next, team!)
                                   ? "TU EQUIPO · LOCAL"
@@ -530,6 +569,7 @@ export default function App() {
                             <div>
                               <Crest name={next.away} large />
                               <h3>{next.away}</h3>
+                              <TeamPosition standing={nextAwayPosition} />
                               <small>
                                 {!ours(next, team!)
                                   ? "TU EQUIPO · VISITANTE"
@@ -541,6 +581,11 @@ export default function App() {
                             <MapPin size={16} />
                             <span>{next.venue || "Campo por confirmar"}</span>
                           </div>
+                          <MatchForecast
+                            match={next}
+                            standings={data.standings}
+                            stale={data.stale}
+                          />
                           <button
                             className="next-link"
                             onClick={() => navigate("calendar")}
@@ -557,7 +602,7 @@ export default function App() {
                         <h2>Así vamos</h2>
                         <Trophy size={20} />
                       </div>
-                      {position ? (
+                      {hasPosition(position) ? (
                         <>
                           <div className="position">
                             <b>
@@ -633,7 +678,12 @@ export default function App() {
                         played
                           .slice(0, 3)
                           .map((m) => (
-                            <MatchRow key={m.id} match={m} team={team!} />
+                            <MatchRow
+                              key={m.id}
+                              match={m}
+                              team={team!}
+                              standings={data.standings}
+                            />
                           ))
                       ) : (
                         <Empty text="Todavía no hay resultados publicados." />
@@ -701,7 +751,12 @@ export default function App() {
                       ? played
                       : [...data.matches].sort((a, b) => a.round - b.round)
                   ).map((m) => (
-                    <MatchRow key={m.id} match={m} team={team!} />
+                    <MatchRow
+                      key={m.id}
+                      match={m}
+                      team={team!}
+                      standings={data.standings}
+                    />
                   ))}
                   {!(
                     calendarFilter === "upcoming"
@@ -714,7 +769,8 @@ export default function App() {
                     <Info size={14} />
                     Los horarios pueden cambiar. Compruébalos antes de
                     desplazarte. La exportación es una copia, no una
-                    suscripción.
+                    suscripción. Las posiciones son las actuales, también en los
+                    partidos pasados.
                   </p>
                 </section>
               )}

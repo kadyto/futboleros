@@ -7,11 +7,22 @@ Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, 
 - Configurar un equipo de la Federación de Fútbol de Madrid desde un panel protegido con contraseña, buscando el club o pegando su ficha.
 - Ver en la portada el próximo encuentro, el último resultado y la posición en la liga.
 - Consultar el calendario completo, los resultados, la clasificación y la plantilla pública.
+- Ver la posición actual junto a cada equipo en los partidos y una estimación orientativa de victoria local, empate y victoria visitante en el próximo encuentro.
 - Exportar los partidos pendientes a un archivo de calendario `.ics`.
 - Compartir el enlace público: todos ven el equipo configurado y nadie puede cambiarlo sin iniciar sesión.
 - Conservar la selección en el servidor y cambiarla desde el panel cuando empiece otra temporada o cambie la categoría.
 
 La aplicación consulta los datos públicos de la RFFM. No está afiliada a la federación. La información depende de lo que esta publique y los horarios pueden cambiar. Las fichas sin grupo asignado, las plantillas no publicadas y las horas pendientes se muestran como tales; no se inventan datos ni se sustituye un fallo por la demostración.
+
+## Posiciones y estimación del próximo partido
+
+Las posiciones junto a los equipos corresponden a la clasificación actual de su grupo, también cuando consultas resultados antiguos. Si no se puede identificar con seguridad al equipo en la tabla, se muestra «Sin posición». Se utiliza primero el identificador federativo y solo se recurre al nombre cuando no hay identificadores contradictorios ni nombres ambiguos.
+
+La portada estima los tres posibles resultados con los datos de ambos equipos: posición, puntos por partido y goles marcados y recibidos por partido. Las tasas goleadoras se suavizan con la media de la liga y tres partidos de referencia. Una corrección moderada por posición y puntos por partido, que pesa menos con pocos encuentros, ajusta los goles esperados. Un modelo de Poisson convierte esos goles esperados en porcentajes de victoria local, empate y victoria visitante. No se aplica una ventaja de campo fija al no disponer de estadísticas separadas de local y visitante.
+
+Se necesitan al menos tres partidos de cada equipo, posiciones disponibles y estadísticas completas. Con tres o cuatro encuentros se avisa de mayor incertidumbre. Sin datos suficientes, o si el encuentro está aplazado, no se inventan porcentajes. Los valores se redondean a enteros repartiendo el redondeo para sumar 100; los extremos se muestran como «<1 %» o «>99 %» para evitar presentar certezas. Se limitan las tasas extremas a entre 0,15 y 15 goles esperados por equipo. La explicación está disponible en «Cómo se calcula».
+
+Es una aproximación estadística sin calibración ni validación histórica para estas competiciones; no garantiza resultados y no considera bajas, alineaciones ni cambios de plantilla. Si se está mostrando la última copia guardada, la estimación utiliza esa misma clasificación y se indica en la explicación. No requiere servicios ni claves externos.
 
 ## Instalar en Dockhand
 

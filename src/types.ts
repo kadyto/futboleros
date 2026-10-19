@@ -32,6 +32,7 @@ export interface Standing {
   goalsFor: number;
   goalsAgainst: number;
   points: number;
+  statisticsComplete?: boolean;
 }
 export interface Player {
   name: string;

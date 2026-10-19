@@ -97,6 +97,31 @@ const path = require("node:path");
       await page.locator(".team-banner h2").textContent(),
       "C.D. Olivares A",
     );
+    assert.equal(
+      await page.locator(".team-banner .team-position").textContent(),
+      "3.º actual",
+    );
+    assert.deepEqual(
+      await page.locator(".matchup .team-position").allTextContents(),
+      ["7.º actual", "3.º actual"],
+    );
+    const chances = await page
+      .locator(".forecast-outcomes strong")
+      .allTextContents();
+    assert.equal(chances.length, 3);
+    assert.equal(
+      chances.reduce((sum, text) => sum + Number.parseInt(text), 0),
+      100,
+    );
+    assert.equal(
+      await page.locator(".results-panel .team-position").count(),
+      6,
+    );
+    await page.getByText("Cómo se calcula", { exact: true }).click();
+    await page
+      .getByText("Compara la posición actual", { exact: false })
+      .waitFor();
+    await page.getByText("Cómo se calcula", { exact: true }).click();
     assert.equal(await page.locator(".selected-row").count(), 1);
     assert.equal(
       await page
@@ -123,7 +148,10 @@ const path = require("node:path");
       })),
       { other: 403, search: 401, write: 401 },
     );
-    await page.screenshot({ path: "test-results/desktop.png", fullPage: false });
+    await page.screenshot({
+      path: "test-results/desktop.png",
+      fullPage: false,
+    });
     const nav = page.getByRole("navigation", {
       name: "Principal",
       exact: true,
@@ -132,11 +160,27 @@ const path = require("node:path");
     await page
       .getByRole("heading", { name: "Calendario.", exact: true })
       .waitFor();
+    assert.deepEqual(
+      await page
+        .locator(".match-row")
+        .first()
+        .locator(".team-position")
+        .allTextContents(),
+      ["7.º actual", "3.º actual"],
+    );
     const download = page.waitForEvent("download");
     await page.getByRole("link", { name: "Exportar calendario" }).click();
     assert.match((await download).suggestedFilename(), /\.ics$/);
     await page.getByRole("button", { name: "Resultados", exact: true }).click();
     assert.ok((await page.locator(".match-row").count()) > 0);
+    assert.equal(
+      await page.locator(".match-row .team-position").count(),
+      2 * (await page.locator(".match-row").count()),
+    );
+    assert.equal(
+      await page.locator(".match-row .team-position.unavailable").count(),
+      0,
+    );
     await nav
       .getByRole("button", { name: "Clasificación", exact: true })
       .click();
@@ -145,6 +189,13 @@ const path = require("node:path");
     assert.equal(await page.locator(".player-card").count(), 12);
     await page.reload();
     await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
+    for (const width of [320, 360, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForFunction(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      );
+      assert.equal(await page.locator(".forecast-outcomes strong").count(), 3);
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForFunction(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -222,11 +273,25 @@ const path = require("node:path");
         .id,
       "1002",
     );
+    await page.route("**/api/team", async (route) => {
+      const response = await route.fetch();
+      const snapshot = await response.json();
+      snapshot.standings = [];
+      await route.fulfill({ response, json: snapshot });
+    });
+    await page.reload();
+    await page.getByRole("heading", { name: "Tu equipo, a mano." }).waitFor();
+    await page.locator(".forecast-unavailable").waitFor();
+    assert.equal(await page.locator(".forecast-outcomes").count(), 0);
+    assert.deepEqual(
+      await page.locator(".matchup .team-position").allTextContents(),
+      ["Sin posición", "Sin posición"],
+    );
     assert.deepEqual(errors, []);
     await publicContext.close();
     await adminContext.close();
     console.log(
-      "Browser checks passed: admin login, search, review without publishing, save, independent public browser, locked APIs, ignored old browser selection, four views, ICS, replacement, logout and mobile layouts.",
+      "Browser checks passed: admin flow, locked public team, current positions, match estimates and missing data, four views, ICS, persistence, logout and mobile layouts.",
     );
   } finally {
     await browser.close();

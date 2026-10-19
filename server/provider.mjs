@@ -77,6 +77,16 @@ export function parseStandings(raw) {
       goalsFor: number(t.goles_a_favor),
       goalsAgainst: number(t.goles_en_contra),
       points: number(t.puntos),
+      statisticsComplete:
+        [
+          t.jugados,
+          t.ganados,
+          t.empatados,
+          t.perdidos,
+          t.goles_a_favor,
+          t.goles_en_contra,
+        ].every((value) => /^\d+$/.test(String(value))) &&
+        /^-?\d+$/.test(String(t.puntos)),
     }))
     .filter((t) => t.team)
     .sort((a, b) => a.position - b.position);
@@ -299,7 +309,13 @@ export class Federation {
         "La temporada de la federación no está disponible.",
       );
     const season = seasons[0];
-    if (!/^\d{1,12}$/.test(String(season.cod_temporada)) || !/^\d{1,12}$/.test(String(raw.codigo_categoria))) throw new SourceError("La federación ha devuelto identificadores con un formato inesperado.");
+    if (
+      !/^\d{1,12}$/.test(String(season.cod_temporada)) ||
+      !/^\d{1,12}$/.test(String(raw.codigo_categoria))
+    )
+      throw new SourceError(
+        "La federación ha devuelto identificadores con un formato inesperado.",
+      );
     team.season = clean(season.nombre);
     const membership = await this.locate(raw, season);
     if (!membership)

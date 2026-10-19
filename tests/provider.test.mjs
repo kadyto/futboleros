@@ -27,6 +27,10 @@ test("normalizes the public team, roster, dates and 0-0 scores without exporting
   assert.equal(matches[1].time, null);
   assert.equal(matches[1].date, "2026-10-24");
   assert.equal(parseStandings(rawStandings)[0].teamId, "1001");
+  assert.equal(parseStandings(rawStandings)[0].statisticsComplete, true);
+  const incomplete = structuredClone(rawStandings);
+  delete incomplete.clasificacion[0].goles_en_contra;
+  assert.equal(parseStandings(incomplete)[0].statisticsComplete, false);
   for (const value of ["2026-02-31", "31-02-2026", "x", ""])
     assert.equal(parseDate(value), null);
   assert.equal(parseDate("03/01/2027"), "2027-01-03");

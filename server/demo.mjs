@@ -33,8 +33,8 @@ export function demoSnapshot(now = new Date()) {
       round,
       home: home ? team.name : rival,
       away: home ? rival : team.name,
-      homeId: home ? "demo" : `example-${i % 7}`,
-      awayId: home ? `example-${i % 7}` : "demo",
+      homeId: home ? "demo" : `example-${1 + (i % 7)}`,
+      awayId: home ? `example-${1 + (i % 7)}` : "demo",
       homeScore: played ? [2, 1, 4, 2, 3][i] : null,
       awayScore: played ? [0, 3, 1, 2, 1][i] : null,
       date: date.toISOString().slice(0, 10),
@@ -55,6 +55,7 @@ export function demoSnapshot(now = new Date()) {
     goalsFor: [25, 21, 18, 12, 10, 7, 5, 4][i],
     goalsAgainst: [5, 6, 9, 14, 16, 18, 17, 17][i],
     points: [15, 13, 13, 7, 6, 4, 1, 1][i],
+    statisticsComplete: true,
   }));
   const squad = Array.from({ length: 12 }, (_, i) => ({
     name: `Jugador de ejemplo ${i + 1}`,
