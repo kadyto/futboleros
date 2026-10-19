@@ -11,6 +11,8 @@ services:
     environment:
       TZ: Europe/Madrid
       DATA_DIR: /data
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Define ADMIN_PASSWORD con al menos 12 caracteres en las variables del stack}
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
     volumes:
       - futboleros_data:/data
     read_only: true

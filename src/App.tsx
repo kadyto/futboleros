@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownToLine,
-  ArrowLeft,
   ArrowRight,
   CalendarDays,
-  Check,
-  ChevronDown,
   ChevronRight,
   Clock3,
   ExternalLink,
@@ -16,17 +13,14 @@ import {
   MapPin,
   Menu,
   RefreshCw,
-  Search,
   Shield,
   Star,
   Trophy,
   Users,
-  X,
 } from "lucide-react";
 import type { Match, Snapshot, Standing, Team } from "./types";
 
 type View = "overview" | "calendar" | "standings" | "squad";
-type Bookmark = Pick<Team, "id" | "name"> & { category?: string };
 const sections = [
   { id: "overview", title: "Mi equipo", icon: Home },
   { id: "calendar", title: "Calendario", icon: CalendarDays },
@@ -39,21 +33,6 @@ const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   weekday: "long",
   timeZone: "Europe/Madrid",
 });
-function readSaved(): { selected?: string; teams: Bookmark[] } {
-  try {
-    const v = JSON.parse(localStorage.getItem("futboleros.teams") || "{}");
-    return {
-      selected: typeof v.selected === "string" ? v.selected : undefined,
-      teams: Array.isArray(v.teams)
-        ? v.teams.filter(
-            (t: Bookmark) => /^\d+$/.test(t.id) && typeof t.name === "string",
-          )
-        : [],
-    };
-  } catch {
-    return { teams: [] };
-  }
-}
 function displayDate(date: string | null) {
   return date
     ? dateFormatter.format(new Date(`${date}T12:00:00+02:00`))
@@ -232,148 +211,47 @@ function Empty({
 }
 
 export default function App() {
-  const [saved, setSaved] = useState(readSaved);
-  const [selected, setSelected] = useState<string | undefined>(saved.selected);
   const [data, setData] = useState<Snapshot | null>(null);
   const [view, setView] = useState<View>("overview");
-  const [picker, setPicker] = useState(!saved.selected);
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [found, setFound] = useState<Bookmark[]>([]);
-  const [searchError, setSearchError] = useState("");
-  const [searchMore, setSearchMore] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [calendarFilter, setCalendarFilter] = useState("upcoming");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [toast, setToast] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    try {
-      localStorage.setItem("futboleros.teams", JSON.stringify(saved));
-    } catch {
-      /* Private browsing can disable storage. */
-    }
-  }, [saved]);
-  useEffect(() => {
-    if (picker) inputRef.current?.focus();
-  }, [picker]);
-  useEffect(() => {
-    if (!selected) return;
     const ctrl = new AbortController();
     setLoading(true);
     setError("");
-    fetch(`/api/teams/${encodeURIComponent(selected)}`, { signal: ctrl.signal })
+    fetch("/api/team", { signal: ctrl.signal })
       .then(async (r) => {
-        const v = await r.json();
+        const value = await r.json();
         if (!r.ok)
-          throw new Error(v.error || "No se ha podido cargar el equipo.");
-        return v as Snapshot;
+          throw new Error(value.error || "No se ha podido cargar el equipo.");
+        return value as Snapshot | null;
       })
-      .then((v) => {
-        setData(v);
-        setPicker(false);
-        if (!v.demo)
-          setSaved((old) => ({
-            selected: v.team.id,
-            teams: [v.team, ...old.teams.filter((t) => t.id !== v.team.id)]
-              .slice(0, 8)
-              .map((t) => ({ id: t.id, name: t.name, category: t.category })),
-          }));
-      })
+      .then(setData)
       .catch((e) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (e.name !== "AbortError") {
+          setData(null);
+          setError(e.message);
+        }
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
       });
     return () => ctrl.abort();
-  }, [selected, refreshKey]);
+  }, [refreshKey]);
   useEffect(() => {
-    const clean = query.trim();
-    setFound([]);
-    setSearchError("");
-    setSearchMore(false);
-    if (
-      !picker ||
-      clean.length < 3 ||
-      /^\d+$/.test(clean) ||
-      clean.includes("fichaequipo/")
-    ) {
-      setSearching(false);
-      return;
-    }
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => {
-      setSearching(true);
-      fetch(`/api/search?q=${encodeURIComponent(clean)}`, {
-        signal: ctrl.signal,
-      })
-        .then(async (r) => {
-          const v = await r.json();
-          if (!r.ok) throw new Error(v.error || "No se ha podido buscar.");
-          return v;
-        })
-        .then((v) => {
-          setFound(v.teams);
-          setSearchMore(Boolean(v.more));
-          if (!v.teams.length)
-            setSearchError(
-              "No se han encontrado equipos. También puedes pegar el enlace de su ficha.",
-            );
-        })
-        .catch((e) => {
-          if (e.name !== "AbortError") setSearchError(e.message);
-        })
-        .finally(() => {
-          if (!ctrl.signal.aborted) setSearching(false);
-        });
-    }, 450);
-    return () => {
-      clearTimeout(timer);
-      ctrl.abort();
+    const refresh = () => {
+      if (document.visibilityState === "visible") setRefreshKey((k) => k + 1);
     };
-  }, [query, picker]);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(""), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-  function choose(id: string) {
-    setSelected(id);
-    setView("overview");
-    setQuery("");
-    setError("");
-    if (id === selected) setRefreshKey((k) => k + 1);
-  }
-  function submitTeam(e: React.FormEvent) {
-    e.preventDefault();
-    const clean = query.trim();
-    if (/^\d{1,12}$/.test(clean)) {
-      choose(clean);
-      return;
-    }
-    try {
-      const u = new URL(clean);
-      const m = u.pathname.match(/^\/fichaequipo\/(\d{1,12})\/?$/);
-      if (
-        u.protocol === "https:" &&
-        ["www.rffm.es", "rffm.es"].includes(u.hostname) &&
-        m
-      ) {
-        choose(m[1]);
-        return;
-      }
-    } catch {
-      /* A name is handled by search. */
-    }
-    if (found.length === 1) choose(found[0].id);
-    else
-      setSearchError(
-        "Elige un resultado o pega el enlace completo de la ficha del equipo.",
-      );
-  }
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
   const team = data?.team;
   const played =
     data?.matches
@@ -433,22 +311,15 @@ export default function App() {
           </span>
         </a>
         <div className="sidebar-kicker">EN LA BANDA, CONTIGO</div>
-        <button
-          className="team-selector"
-          onClick={() => {
-            setPicker(true);
-            setMobileMenu(false);
-          }}
-        >
+        <div className="team-selector public-team-label">
           <div className="small-team-icon">
             <Shield size={22} />
           </div>
           <span>
-            <small>ESTÁS SIGUIENDO A</small>
-            <strong>{team?.name || "Elige tu equipo"}</strong>
+            <small>EQUIPO DE ESTA WEB</small>
+            <strong>{team?.name || "Pendiente de configurar"}</strong>
           </span>
-          <ChevronDown size={16} />
-        </button>
+        </div>
         <p className="nav-label">TU TEMPORADA</p>
         <nav aria-label="Principal">
           {sections.map(({ id, title, icon: Icon }) => (
@@ -473,7 +344,10 @@ export default function App() {
             <Shield size={16} />
             <span>Solo fútbol. Sin anuncios.</span>
           </div>
-          <small>Futboleros · v0.1.0</small>
+          <a className="admin-access" href="/admin">
+            Administración
+          </a>
+          <small>Futboleros · v0.2.0</small>
         </div>
       </aside>
       {mobileMenu && (
@@ -509,31 +383,17 @@ export default function App() {
                 {team.season || "Temporada actual"}
               </span>
             )}
-            <button
+            <a
               className="icon-button"
-              title="Cambiar equipo"
-              aria-label="Cambiar equipo"
-              onClick={() => setPicker(true)}
+              href="/admin"
+              title="Administración"
+              aria-label="Administración"
             >
-              <Search size={19} />
-            </button>
+              <Shield size={19} />
+            </a>
           </div>
         </header>
         <div className="page-content">
-          {data?.demo && (
-            <div className="notice demo-notice">
-              <Info size={17} />
-              <span>Estás explorando un ejemplo con datos ficticios.</span>
-              <button
-                onClick={() => {
-                  setPicker(true);
-                  setQuery("");
-                }}
-              >
-                Elegir mi equipo <ArrowRight size={14} />
-              </button>
-            </div>
-          )}
           {error && (
             <div className="notice error-notice" role="alert">
               <Info size={18} />
@@ -541,7 +401,6 @@ export default function App() {
               <button onClick={() => setRefreshKey((k) => k + 1)}>
                 Reintentar
               </button>
-              <button onClick={() => setPicker(true)}>Cambiar equipo</button>
             </div>
           )}
           {data?.stale && (
@@ -571,12 +430,15 @@ export default function App() {
                 más te importa<span>.</span>
               </h1>
               <p>
-                Los horarios del próximo finde. Ese gol de la última jornada. La
-                ilusión de toda una temporada. Todo, en un mismo sitio.
+                {error
+                  ? "No podemos cargar la información en este momento. Puedes volver a intentarlo con el botón superior."
+                  : "El equipo aún no está configurado. Cuando la administración lo guarde, aquí aparecerán sus partidos, resultados y clasificación."}
               </p>
-              <button className="primary" onClick={() => setPicker(true)}>
-                Elegir mi equipo <ArrowRight size={18} />
-              </button>
+              {!error && (
+                <a className="primary" href="/admin">
+                  Ir a administración <ArrowRight size={18} />
+                </a>
+              )}
               <div className="welcome-pitch" aria-hidden="true">
                 <div className="pitch-center" />
                 <div className="pitch-ball">⚽</div>
@@ -841,11 +703,7 @@ export default function App() {
                         </button>
                       ))}
                     </div>
-                    <a
-                      className="secondary"
-                      href={`/api/teams/${team!.id}/calendar.ics`}
-                      download
-                    >
+                    <a className="secondary" href="/api/calendar.ics" download>
                       <ArrowDownToLine size={16} />
                       Exportar calendario
                     </a>
@@ -976,170 +834,6 @@ export default function App() {
           </nav>
         )}
       </main>
-      {picker && (
-        <div
-          className="modal-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && data) setPicker(false);
-          }}
-        >
-          <section
-            className="picker-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="picker-title"
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && data) setPicker(false);
-              if (e.key === "Tab") {
-                const controls = [
-                  ...e.currentTarget.querySelectorAll<HTMLElement>(
-                    "button:not(:disabled), input, a[href]",
-                  ),
-                ];
-                const first = controls[0],
-                  last = controls.at(-1);
-                if (e.shiftKey && document.activeElement === first) {
-                  e.preventDefault();
-                  last?.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                  e.preventDefault();
-                  first?.focus();
-                }
-              }
-            }}
-          >
-            <div className="modal-top">
-              <span className="modal-symbol">
-                <Shield size={24} />
-              </span>
-              {data && (
-                <button
-                  className="icon-button"
-                  aria-label="Cerrar selección"
-                  onClick={() => setPicker(false)}
-                >
-                  <X size={21} />
-                </button>
-              )}
-            </div>
-            <div className="eyebrow">AQUÍ EMPIEZA TU TEMPORADA</div>
-            <h2 id="picker-title">
-              ¿A quién animamos<span>?</span>
-            </h2>
-            <p>
-              Elige un equipo de la Federación de Fútbol de Madrid. Lo
-              recordaremos para la próxima vez.
-            </p>
-            <form onSubmit={submitTeam}>
-              <label htmlFor="team-search">
-                Nombre, enlace de la ficha o identificador
-              </label>
-              <div className="search-field">
-                <Search size={18} />
-                <input
-                  id="team-search"
-                  ref={inputRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Busca tu equipo o pega su enlace…"
-                  autoComplete="off"
-                  maxLength={250}
-                />
-                {searching && <LoaderCircle size={17} className="spin" />}
-              </div>
-              {searchError && (
-                <p className="search-error" role="status">
-                  {searchError}
-                </p>
-              )}
-              <div className="search-results">
-                {found.map((t) => (
-                  <button type="button" key={t.id} onClick={() => choose(t.id)}>
-                    <Crest name={t.name} />
-                    <span>
-                      {t.name}
-                      {t.category && <small>{t.category}</small>}
-                    </span>
-                    <ChevronRight size={17} />
-                  </button>
-                ))}
-              </div>
-              {searchMore && (
-                <p className="search-more">
-                  Hay más resultados. Escribe un nombre de club más concreto.
-                </p>
-              )}
-              <button className="primary" disabled={!query.trim() || loading}>
-                {loading ? (
-                  <LoaderCircle className="spin" size={17} />
-                ) : (
-                  <ArrowRight size={17} />
-                )}
-                Seguir equipo
-              </button>
-            </form>
-            {error && (
-              <div className="picker-error" role="alert">
-                {error}
-              </div>
-            )}
-            {saved.teams.length > 0 && (
-              <div className="saved-teams">
-                <h3>Tus equipos recientes</h3>
-                {saved.teams.map((t) => (
-                  <div key={t.id}>
-                    <button onClick={() => choose(t.id)}>
-                      <Crest name={t.name} />
-                      <span>
-                        {t.name}
-                        {t.category && <small>{t.category}</small>}
-                      </span>
-                      {selected === t.id ? (
-                        <Check size={16} />
-                      ) : (
-                        <ChevronRight size={16} />
-                      )}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Olvidar ${t.name}`}
-                      onClick={() => {
-                        setSaved((old) => ({
-                          ...old,
-                          teams: old.teams.filter((x) => x.id !== t.id),
-                        }));
-                        setToast("Equipo eliminado de recientes");
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="picker-hint">
-              <Info size={16} />
-              <p>
-                Si no lo encuentras, abre su ficha en{" "}
-                <a href="https://www.rffm.es" target="_blank" rel="noreferrer">
-                  rffm.es <ExternalLink size={11} />
-                </a>{" "}
-                y pega aquí la dirección. Puedes cambiar de equipo o categoría
-                cuando quieras.
-              </p>
-            </div>
-            <button className="demo-link" onClick={() => choose("demo")}>
-              Echar un vistazo con un equipo de ejemplo <ArrowRight size={14} />
-            </button>
-          </section>
-        </div>
-      )}
-      {toast && (
-        <div className="toast" role="status">
-          <Check size={17} />
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

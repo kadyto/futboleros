@@ -1,26 +1,25 @@
 # Futboleros
 
-Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios ni cuentas. Pensada para consultar desde el móvil y alojarla en tu propio servidor con Docker.
+Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, con una vista pública de solo lectura y un pequeño panel privado. Pensada para consultar desde el móvil y alojarla en tu propio servidor con Docker.
 
 ## Qué puedes hacer
 
-- Elegir un equipo de la Federación de Fútbol de Madrid buscando su club, pegando el enlace de su ficha o introduciendo su identificador.
+- Configurar un equipo de la Federación de Fútbol de Madrid desde un panel protegido con contraseña, buscando el club o pegando su ficha.
 - Ver en la portada el próximo encuentro, el último resultado y la posición en la liga.
 - Consultar el calendario completo, los resultados, la clasificación y la plantilla pública.
 - Exportar los partidos pendientes a un archivo de calendario `.ics`.
-- Recordar el equipo elegido y hasta ocho equipos recientes en cada navegador.
-- Cambiar de equipo cuando cambie la categoría o empiece otra temporada.
-- Explorar una demostración identificada con datos ficticios.
+- Compartir el enlace público: todos ven el equipo configurado y nadie puede cambiarlo sin iniciar sesión.
+- Conservar la selección en el servidor y cambiarla desde el panel cuando empiece otra temporada o cambie la categoría.
 
 La aplicación consulta los datos públicos de la RFFM. No está afiliada a la federación. La información depende de lo que esta publique y los horarios pueden cambiar. Las fichas sin grupo asignado, las plantillas no publicadas y las horas pendientes se muestran como tales; no se inventan datos ni se sustituye un fallo por la demostración.
 
 ## Instalar en Dockhand
 
-Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Construye y despliega el stack. No necesitas clonar el repositorio, elegir rutas de almacenamiento ni crear usuarios de la aplicación.
+Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Define `ADMIN_PASSWORD` en las variables del stack con una contraseña propia de al menos 12 caracteres. Construye y despliega el stack. No necesitas clonar el repositorio ni elegir rutas de almacenamiento.
 
 El compose descarga el código de `main`, construye la web y publica el puerto **8093** del servidor. Abre la dirección de tu servidor con ese puerto. Si ya lo usas para otro servicio, cambia `8093` por un puerto libre o define `APP_PORT` en Dockhand.
 
-El volumen `futboleros_data` se crea automáticamente y conserva la caché entre recreaciones del contenedor. No lo borres para actualizar. La selección de equipo se conserva en el navegador: cada móvil puede seguir un equipo distinto.
+El volumen `futboleros_data` se crea automáticamente y conserva la selección del equipo y la caché entre recreaciones del contenedor. Mantén el nombre del stack y su volumen al actualizar. Todos los navegadores muestran el mismo equipo.
 
 La imagen se construye con Node 24 sobre Alpine, con variantes para amd64 y arm64. La primera construcción necesita acceso a Docker Hub, GitHub y el registro de npm. En ejecución necesita HTTPS a `www.rffm.es`.
 
@@ -28,11 +27,15 @@ Para más detalles, consulta [la guía de instalación y mantenimiento](docs/des
 
 ## Primer uso
 
-1. Busca el nombre del club y elige el equipo con su categoría. Si el nombre es muy genérico, concreta la búsqueda.
-2. También puedes abrir la ficha del equipo en `rffm.es`, copiar su dirección y pegarla en el selector. Solo se aceptan fichas HTTPS de ese dominio.
-3. La primera consulta localiza el grupo del equipo y puede tardar unos segundos. Las siguientes usan la caché.
-4. Usa **Calendario**, **Clasificación** y **Plantilla** para ver las demás pantallas. En móvil, están en la barra inferior.
-5. Al cambiar de temporada o categoría, abre el selector y elige la nueva ficha. La aplicación consulta la temporada actual publicada; no deduce ascensos ni cambios de plantilla por edad.
+1. Abre `/admin` en la misma dirección donde has instalado la web e inicia sesión con `ADMIN_PASSWORD`.
+2. Busca el club y selecciona el equipo con su categoría. También puedes pegar su ficha HTTPS de `rffm.es` o su identificador.
+3. Revisa el nombre y la categoría y pulsa **Guardar equipo público**. Revisar un equipo no cambia la selección publicada.
+4. Comparte la dirección principal de la web, sin `/admin`. Los visitantes pueden ver calendario, resultados, clasificación y plantilla, además de exportar el calendario, sin iniciar sesión.
+5. Al cambiar de categoría, entra de nuevo en `/admin` y guarda la nueva ficha. La aplicación consulta la temporada actual publicada; no deduce cambios de plantilla o categoría por edad.
+
+Si actualizas desde la versión 0.1, el equipo antes elegido en un navegador no se publica automáticamente. Configúralo una vez desde el nuevo panel; las preferencias antiguas del navegador dejan de determinar qué equipo se muestra.
+
+El servidor comprueba los permisos también en la API: buscar y configurar equipos requiere sesión. Las consultas públicas solo permiten acceder al equipo guardado. Cambiar una dirección o modificar el almacenamiento del navegador no permite cambiar el equipo público.
 
 Puedes añadir la web a la pantalla de inicio desde el navegador. El manifiesto facilita su uso como web independiente; esta versión no genera un APK. El frontend y la API están separados para facilitar un futuro cliente móvil.
 
@@ -44,9 +47,11 @@ La caché dura 15 minutos y se guarda en `/data`. **Actualizar** vuelve a consul
 
 El índice de grupos se conserva durante 24 horas por temporada y categoría. Las consultas al origen se limitan a cuatro simultáneas y se comparten cuando varios usuarios piden el mismo equipo. Solo se consulta la categoría necesaria, no se descarga toda la federación.
 
-La plantilla incluye únicamente los nombres deportivos publicados. Se descartan fotografías, fechas de nacimiento, identificadores de jugadores, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. No hay analítica, publicidad, fuentes remotas ni servicios externos en el navegador. La elección del equipo se guarda localmente en ese navegador.
+La plantilla incluye únicamente los nombres deportivos publicados. Se descartan fotografías, fechas de nacimiento, identificadores de jugadores, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. No hay analítica, publicidad, fuentes remotas ni servicios externos en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
 
-La aplicación no incluye autenticación. Está orientada a una red de confianza; para acceso desde Internet usa un proxy HTTPS con autenticación o una VPN. El contenedor no necesita acceso al socket de Docker.
+La administración usa una contraseña definida en el servidor y sesiones con cookies `HttpOnly` y `SameSite=Strict`. Las sesiones duran 12 horas, se invalidan al cerrar sesión y no sobreviven a un reinicio del servidor. Los intentos fallidos están limitados. Sin una contraseña válida, el panel queda deshabilitado; una configuración pública ya guardada continúa disponible.
+
+Para compartirla por Internet, usa HTTPS, también al acceder al panel. La parte pública es accesible sin contraseña; si quieres limitar quién puede ver la información, añade autenticación en un proxy inverso o utiliza una VPN. El contenedor no necesita acceso al socket de Docker.
 
 ## Desarrollo
 
@@ -58,7 +63,7 @@ npm run build
 npm start
 ```
 
-El servidor escucha en el puerto 8000. Para desarrollar con recarga de la interfaz, ejecuta `npm run dev` y, en otra terminal, `npm run dev:web`; Vite redirige `/api` al backend.
+El servidor escucha en el puerto 8000. Define `ADMIN_PASSWORD` en el entorno del proceso para usar el panel; no guardes la contraseña en el código. Las pruebas proporcionan su propia contraseña ficticia. Para desarrollar con recarga de la interfaz, ejecuta `npm run dev` y, en otra terminal, `npm run dev:web`; Vite redirige `/api` al backend.
 
 ```sh
 npm test
@@ -66,7 +71,7 @@ npm run check
 npm run build
 ```
 
-Las pruebas cubren extracción de datos, descubrimiento del grupo, caché persistente, fallos del origen, exportación y API HTTP. Las pruebas del navegador usan datos ficticios y no dependen de que la federación esté disponible:
+Las pruebas cubren extracción de datos, descubrimiento del grupo, caché, fallos del origen, exportación, sesión de administración, permisos de la API, protección de cambios y persistencia de la selección. Las pruebas del navegador usan datos ficticios y no dependen de que la federación esté disponible:
 
 ```sh
 npm install --prefix /tmp/futboleros-browser --no-audit --no-fund playwright-core
@@ -84,7 +89,9 @@ Las capturas de esas pruebas se guardan en `test-results/`, que Git ignora. La i
 | `BIND_ADDRESS` | `0.0.0.0` | Interfaz publicada por Compose. |
 | `PORT` | `8000` | Puerto del backend al ejecutar Node directamente. |
 | `HOST` | `0.0.0.0` | Interfaz del backend al ejecutar Node directamente. |
-| `DATA_DIR` | `./data` fuera de Docker, `/data` dentro | Caché e índice de grupos. |
+| `DATA_DIR` | `./data` fuera de Docker, `/data` dentro | Configuración del equipo, caché e índice de grupos. |
+| `ADMIN_PASSWORD` | Sin valor predeterminado | Contraseña privada del panel: al menos 12 caracteres. Obligatoria en Compose. |
+| `COOKIE_SECURE` | `auto` | Activa `Secure` si la petición llega por HTTPS o el proxy indica `X-Forwarded-Proto: https`. `true` lo fuerza. |
 | `TZ` | `Europe/Madrid` en Docker | Zona horaria del contenedor; los partidos usan la hora de Madrid. |
 
 No se necesitan claves de API ni credenciales de la federación. `/healthz` comprueba que el servidor responde, no la disponibilidad de la web externa.

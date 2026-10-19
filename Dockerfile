@@ -11,7 +11,7 @@ FROM node:24-alpine
 LABEL org.opencontainers.image.title="Futboleros" \
       org.opencontainers.image.description="Tu equipo, su calendario y su temporada" \
       org.opencontainers.image.source="https://github.com/kadyto/futboleros" \
-      org.opencontainers.image.version="0.1.0"
+      org.opencontainers.image.version="0.2.0"
 ENV NODE_ENV=production PORT=8000 DATA_DIR=/data TZ=Europe/Madrid
 WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules

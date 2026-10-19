@@ -5,11 +5,15 @@ import { Federation } from "./provider.mjs";
 import { SnapshotCache } from "./cache.mjs";
 import { demoSnapshot } from "./demo.mjs";
 import { makeCalendar } from "./calendar.mjs";
+import { SiteSettings } from "./settings.mjs";
+import { AdminAuth } from "./auth.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
   provider,
   clock,
+  adminPassword = process.env.ADMIN_PASSWORD,
+  cookieSecure = process.env.COOKIE_SECURE || "auto",
 } = {}) {
   const federation = provider || new Federation({ directory });
   const cache = new SnapshotCache({
@@ -17,6 +21,8 @@ export function createApp({
     loader: (id) => federation.snapshot(id),
     clock,
   });
+  const settings = new SiteSettings(directory);
+  const auth = new AdminAuth({ password: adminPassword, clock, cookieSecure });
   const app = express();
   app.disable("x-powered-by");
   app.set("query parser", "simple");
@@ -32,7 +38,7 @@ export function createApp({
     next();
   });
   app.get("/healthz", (_req, res) =>
-    res.json({ status: "ok", version: "0.1.0" }),
+    res.json({ status: "ok", version: "0.2.0" }),
   );
   const requests = new Map();
   app.use("/api", (req, res, next) => {
@@ -41,12 +47,9 @@ export function createApp({
       now = Date.now();
     const recent = (requests.get(key) || []).filter((t) => now - t < 60_000);
     if (recent.length >= 90)
-      return res
-        .status(429)
-        .set("Retry-After", "60")
-        .json({
-          error: "Demasiadas consultas. Espera un minuto antes de continuar.",
-        });
+      return res.status(429).set("Retry-After", "60").json({
+        error: "Demasiadas consultas. Espera un minuto antes de continuar.",
+      });
     recent.push(now);
     requests.set(key, recent);
     if (requests.size > 1000)
@@ -54,14 +57,79 @@ export function createApp({
         if (now - times.at(-1) > 60_000) requests.delete(ip);
     next();
   });
-  app.get("/api/search", async (req, res, next) => {
+  app.use("/api/admin", express.json({ limit: "8kb" }));
+  app.get("/api/admin/session", (req, res) =>
+    res.json({
+      available: auth.available,
+      authenticated: auth.authenticated(req),
+    }),
+  );
+  app.post("/api/admin/login", auth.sameOrigin, async (req, res, next) => {
+    try {
+      await auth.login(req, res);
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.post("/api/admin/logout", auth.sameOrigin, (req, res) =>
+    auth.logout(req, res),
+  );
+  app.get("/api/admin/config", auth.require, async (_req, res, next) => {
+    try {
+      res.json(await settings.read());
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.put(
+    "/api/admin/config",
+    auth.require,
+    auth.sameOrigin,
+    async (req, res, next) => {
+      const id = req.body?.teamId;
+      if (typeof id !== "string" || !/^\d{1,12}$/.test(id))
+        return res
+          .status(400)
+          .json({ error: "Elige un equipo real antes de guardar." });
+      try {
+        const snapshot = await getSnapshot(id);
+        res.json(await settings.save(snapshot.team));
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.get("/api/team", async (_req, res, next) => {
+    try {
+      const config = await settings.read();
+      res.json(config.team ? await getSnapshot(config.team.id) : null);
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.get("/api/calendar.ics", async (_req, res, next) => {
+    try {
+      const config = await settings.read();
+      if (!config.team)
+        return res
+          .status(404)
+          .json({ error: "Todavía no hay un equipo configurado." });
+      res
+        .set({
+          "Content-Type": "text/calendar; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="futboleros.ics"',
+        })
+        .send(makeCalendar(await getSnapshot(config.team.id)));
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.get("/api/search", auth.require, async (req, res, next) => {
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     if (q.length < 3 || q.length > 100 || /[\x00-\x1f]/.test(q))
-      return res
-        .status(400)
-        .json({
-          error: "Escribe entre 3 y 100 caracteres para buscar tu club.",
-        });
+      return res.status(400).json({
+        error: "Escribe entre 3 y 100 caracteres para buscar tu club.",
+      });
     try {
       res.json(await federation.search(q));
     } catch (e) {
@@ -77,7 +145,23 @@ export function createApp({
     }
     return cache.get(id);
   }
-  app.get("/api/teams/:id/calendar.ics", async (req, res, next) => {
+  async function allowTeam(req, res, next) {
+    if (auth.authenticated(req)) return next();
+    try {
+      const config = await settings.read();
+      if (config.team?.id !== req.params.id)
+        return res
+          .status(403)
+          .json({
+            error:
+              "La parte pública solo permite consultar el equipo configurado.",
+          });
+      next();
+    } catch (e) {
+      next(e);
+    }
+  }
+  app.get("/api/teams/:id/calendar.ics", allowTeam, async (req, res, next) => {
     try {
       const data = await getSnapshot(req.params.id);
       res
@@ -90,7 +174,7 @@ export function createApp({
       next(e);
     }
   });
-  app.get("/api/teams/:id", async (req, res, next) => {
+  app.get("/api/teams/:id", allowTeam, async (req, res, next) => {
     try {
       res.json(await getSnapshot(req.params.id));
     } catch (e) {
@@ -114,7 +198,9 @@ export function createApp({
       },
     }),
   );
-  app.get("/", (_req, res) => res.sendFile(path.join(dist, "index.html")));
+  app.get(["/", "/admin", "/admin/"], (_req, res) =>
+    res.sendFile(path.join(dist, "index.html")),
+  );
   app.use((_req, res) =>
     res.status(404).type("text/plain").send("No encontrado."),
   );
@@ -124,14 +210,14 @@ export function createApp({
         ? err.status
         : 500;
     if (status === 500) console.error("Error interno:", err.message);
-    res
-      .status(status)
-      .json({
-        error:
-          status === 500
+    res.status(status).json({
+      error:
+        err.type === "entity.parse.failed"
+          ? "El contenido de la petición no es válido."
+          : status === 500
             ? "Ha ocurrido un error al consultar los datos. Vuelve a intentarlo."
             : err.message,
-      });
+    });
   });
   return app;
 }
