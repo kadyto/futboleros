@@ -1,0 +1,25 @@
+services:
+  futboleros:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-8093}:8000"
+    environment:
+      TZ: Europe/Madrid
+      DATA_DIR: /data
+    volumes:
+      - futboleros_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    stop_grace_period: 15s
+
+volumes:
+  futboleros_data:

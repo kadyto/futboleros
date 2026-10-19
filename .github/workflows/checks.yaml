@@ -1,0 +1,49 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Validate Compose
+        run: |
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.dockhand.yaml config --quiet
+      - name: Browser checks
+        run: |
+          npm install --prefix /tmp/futboleros-browser --no-audit --no-fund playwright-core
+          PLAYWRIGHT_MODULE=/tmp/futboleros-browser/node_modules/playwright-core CHROMIUM_PATH=/usr/bin/google-chrome node tests/browser.cjs
+      - name: Build and run container
+        run: |
+          docker build -t futboleros:test .
+          docker run -d --name futboleros-ci --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
+          trap 'docker rm -f futboleros-ci; docker volume rm futboleros_ci_data' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8093/healthz; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8093/healthz
+          curl -fsS http://127.0.0.1:8093/api/teams/demo | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const d=JSON.parse(s);if(!d.demo||!d.matches.length||!d.standings.length||!d.squad.length)process.exit(1)})"
+          docker exec futboleros-ci node -e "require('fs').writeFileSync('/data/persistence-check','ok')"
+          docker stop futboleros-ci
+          docker rm futboleros-ci
+          docker run -d --name futboleros-ci --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
+          docker exec futboleros-ci node -e "if(require('fs').readFileSync('/data/persistence-check','utf8')!=='ok')process.exit(1)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-screenshots
+          path: test-results/*.png
+          if-no-files-found: ignore
