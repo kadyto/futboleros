@@ -16,8 +16,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm test
       - run: npm run build
+      - run: npm test
       - run: npm audit --omit=dev --audit-level=high
       - name: Validate Compose
         run: |
