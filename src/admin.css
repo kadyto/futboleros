@@ -2,6 +2,228 @@
   min-height: 100vh;
   background: #f5f6f2;
 }
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+.admin-tabs > button {
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-tabs > button.active {
+  background: var(--green);
+  color: white;
+}
+.admin-tabs > button:last-child {
+  margin-left: auto;
+}
+.statistics-intro > p {
+  padding: 0 24px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #6e805b;
+}
+.statistics-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 24px 24px;
+}
+.statistics-panel .statistics-controls label {
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.statistics-controls select {
+  font: inherit;
+  padding: 10px 30px 10px 12px;
+  border: 1px solid #dfe4d7;
+  border-radius: 7px;
+  color: var(--green);
+  background: white;
+}
+.statistics-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.statistics-metrics > div {
+  padding: 22px;
+  display: grid;
+  gap: 9px;
+}
+.statistics-metrics small {
+  font-weight: 600;
+  font-size: 12px;
+}
+.statistics-metrics strong {
+  font-size: 36px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+.statistics-metrics span,
+.statistics-help,
+.statistics-notes {
+  font-size: 11px;
+  color: #6e805b;
+  line-height: 1.7;
+}
+.statistics-chart {
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.statistics-chart h3,
+.statistics-breakdown h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.statistics-chart svg {
+  width: 100%;
+  height: 170px;
+  display: block;
+  margin-top: 15px;
+}
+.statistics-chart-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #6e805b;
+}
+.statistics-chart details {
+  margin-top: 18px;
+  font-size: 11px;
+}
+.statistics-chart summary {
+  cursor: pointer;
+}
+.statistics-chart table {
+  margin-top: 14px;
+}
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.statistics-breakdown {
+  padding: 24px;
+}
+.statistics-breakdown:last-child {
+  grid-column: 1 / -1;
+}
+.statistics-breakdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.statistics-breakdown li {
+  position: relative;
+  margin-top: 16px;
+  padding-right: 38px;
+}
+.statistics-breakdown li > div:first-child {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.statistics-breakdown li small {
+  position: absolute;
+  right: 0;
+  top: 1px;
+  font-size: 10px;
+  color: #6e805b;
+}
+.statistics-track {
+  height: 4px;
+  background: #edf1e7;
+  border-radius: 5px;
+  margin-top: 8px;
+}
+.statistics-track span {
+  display: block;
+  height: 100%;
+  background: #8ba55d;
+  border-radius: inherit;
+}
+.statistics-notes {
+  margin: 22px 0;
+}
+.statistics-notes p + p {
+  margin-top: 10px;
+}
+.statistics-notes a,
+.privacy-content a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.statistics-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px;
+  font-size: 12px;
+}
+.privacy-content > section {
+  margin-top: 24px;
+  padding: 28px;
+}
+.privacy-content h2 {
+  font-size: 19px;
+  margin-bottom: 16px;
+}
+.privacy-content p {
+  font-size: 13px;
+  line-height: 1.9;
+  margin-bottom: 18px;
+  color: #526348;
+}
+@media (max-width: 650px) {
+  .statistics-metrics {
+    gap: 8px;
+  }
+  .statistics-metrics > div {
+    padding: 14px 10px;
+  }
+  .statistics-metrics strong {
+    font-size: 28px;
+  }
+  .statistics-metrics small {
+    font-size: 10px;
+  }
+  .statistics-metrics span {
+    font-size: 9px;
+  }
+  .statistics-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .statistics-chart,
+  .statistics-breakdown {
+    padding: 18px;
+  }
+  .statistics-controls {
+    padding: 16px;
+  }
+  .statistics-intro > p {
+    padding: 0 16px;
+  }
+  .admin-tabs > button {
+    padding: 10px;
+    font-size: 11px;
+  }
+}
 .admin-weather {
   margin-top: 24px;
 }

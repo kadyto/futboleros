@@ -41,7 +41,7 @@ Para fijar una versión, sustituye `#main` en el contexto Git del compose de Doc
 
 ## Almacenamiento
 
-`/data/settings.json` contiene el equipo público configurado. `/data/weather-locations.json` conserva las ubicaciones de campos confirmadas. El resto de archivos son instantáneas e índices de grupos. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva `settings.json` y `weather-locations.json` para mantener el equipo y las ubicaciones confirmadas. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
+`/data/settings.json` contiene el equipo público configurado. `/data/weather-locations.json` conserva las ubicaciones de campos confirmadas y `/data/statistics.json` los contadores diarios de visitas. El resto de archivos son instantáneas e índices de grupos. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva los tres archivos de configuración y estadísticas para mantener esos datos. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
 
 El equipo es común a todos los navegadores. Borrar los datos de un navegador no altera la selección. Cerrar sesión o reiniciar el contenedor tampoco cambia el equipo.
 
@@ -52,6 +52,22 @@ La contraseña solo se define en las variables del stack, nunca en la documentac
 El panel no permite que la primera visita cree un administrador: si falta una contraseña válida en el servidor, permanece deshabilitado. Tras ocho intentos fallidos desde la misma dirección, hay una espera de 15 minutos.
 
 La sesión se guarda en una cookie `HttpOnly`, dura 12 horas y se elimina con **Cerrar sesión**. Si un proxy termina HTTPS, debe conservar el encabezado `Host` original e indicar `X-Forwarded-Proto: https`; así la cookie se marca como `Secure`. También puedes establecer `COOKIE_SECURE=true` cuando uses siempre HTTPS. No lo fuerces para una instalación accesible únicamente por HTTP.
+
+## Estadísticas y proxy inverso
+
+Actualiza el compose del stack para incluir `ANALYTICS_TRUST_PROXY`. Si Cloudflare recibe las visitas y las reenvía a Nginx Proxy Manager u otro proxy local, define en las variables de Dockhand:
+
+```env
+ANALYTICS_TRUST_PROXY=cloudflare
+```
+
+Este valor confía en los saltos internos de redes privadas y en los rangos publicados de Cloudflare. La dirección original se obtiene recorriendo `X-Forwarded-For` desde el servidor hacia el visitante; `CF-Connecting-IP` solo se utiliza si la cadena contiene un salto de Cloudflare de confianza. El proxy debe conservar `Host` y añadir correctamente la dirección de su conexión a `X-Forwarded-For`. No debe copiar sin validación una cabecera de IP elegida por el visitante. Restringe el acceso directo al puerto de la aplicación cuando deba recibir tráfico solo del proxy.
+
+Para otros proxies, indica sus IP o rangos CIDR separados por comas, por ejemplo `172.20.0.0/24`. Usa exclusivamente la red o las direcciones del proxy real. Si no hay proxy, deja la variable vacía: se ignoran las cabeceras reenviadas. No se activa confianza global en todos los proxies ni se usa esta configuración para autorizar la administración.
+
+Reconstruye y recrea el servicio después de actualizar el compose y las variables. La IP solo se utiliza de forma transitoria para consultar una base local. Las estadísticas no guardan la IP ni la envían a proveedores. Los registros propios de Cloudflare y del proxy son independientes; revisa su configuración si quieres limitar también esos registros.
+
+La base incluida corresponde a la versión de datos instalada, no se descarga en cada visita. Para sustituirla por una edición posterior, descarga una base **DB-IP City Lite MMDB** de su fuente oficial, móntala como archivo de solo lectura y define `GEOIP_DATABASE` con la ruta dentro del contenedor. El lector admite los campos de DB-IP `country_code`, `state1` y `city`. Conserva la atribución de DB-IP y la licencia CC BY 4.0. Si no hay datos para una IP o falla la base, la visita se cuenta con ubicación «No disponible».
 
 ## Diagnóstico
 

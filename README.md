@@ -35,7 +35,19 @@ La ubicación aproximada del campo se busca con [Nominatim/OpenStreetMap](https:
 
 Las previsiones se comparten entre visitantes y se guardan en memoria durante 30 minutos. La búsqueda de campos se conserva durante 24 horas y las consultas simultáneas se agrupan. Se respeta la [política de Nominatim](https://operations.osmfoundation.org/policies/nominatim/): solicitudes identificadas, como máximo una por segundo, caché y atribución; no se utiliza autocompletado ni consultas masivas. Si falla la meteorología, se reintenta tras cinco minutos y se puede mostrar la última previsión, marcada como antigua, durante un máximo de seis horas. Un fallo meteorológico no impide ver el partido, los resultados o la clasificación.
 
-No se solicita la ubicación del visitante. El servidor envía el nombre público del campo a Nominatim y las coordenadas de la instalación a Open-Meteo; no envía nombres de jugadores ni datos de usuarios. El navegador solo consulta la API de esta aplicación. Los datos meteorológicos proceden de Open-Meteo bajo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); las ubicaciones, de [OpenStreetMap](https://www.openstreetmap.org/copyright). Las fuentes y su atribución aparecen junto a la previsión.
+No se solicita la ubicación del visitante para mostrar la previsión. El servidor envía el nombre público del campo a Nominatim y las coordenadas de la instalación a Open-Meteo; no envía nombres de jugadores ni datos de usuarios. El navegador solo consulta la API de esta aplicación. Los datos meteorológicos proceden de Open-Meteo bajo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); las ubicaciones, de [OpenStreetMap](https://www.openstreetmap.org/copyright). Las fuentes y su atribución aparecen junto a la previsión.
+
+## Estadísticas de visitas
+
+En **Administración → Estadísticas** se pueden consultar las entradas, las pantallas vistas y su evolución diaria para 7, 30 o 90 días. Una entrada es una apertura de la web, no una persona única; recargar cuenta como una nueva entrada. Cambiar de pantalla suma una pantalla vista, mientras que la actualización periódica de los datos no suma visitas. Se excluyen las sesiones de administración, los robots reconocidos y las peticiones con DNT o Global Privacy Control.
+
+Los desgloses por tipo de dispositivo, sistema operativo, modelo comunicado y ubicación aproximada se calculan sobre las entradas. Se utiliza únicamente el encabezado normal del navegador; muchos navegadores Android modernos e iOS no comunican el modelo exacto y se muestra «No disponible». No se solicitan Client Hints adicionales ni se emplean técnicas de identificación del dispositivo.
+
+La ubicación se estima con una copia local de [DB-IP Lite](https://db-ip.com/db/lite.php), distribuida bajo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). La IP se consulta de forma transitoria, no se almacena ni se envía a un servicio externo. Las conexiones locales, VPN y redes móviles pueden impedir la localización o situarla en otra ciudad. La imagen incluye la base de datos de la versión publicada; no es una consulta geográfica en tiempo real.
+
+Solo se guardan contadores diarios separados en `/data/statistics.json`, sin registros individuales ni cruces entre dispositivo y ubicación. No se guardan IP, hashes de IP, cabeceras completas, identificadores de visitante, coordenadas ni procedencias. No se utilizan cookies de analítica ni almacenamiento del navegador. Al recoger visitas o consultar el panel se eliminan los contadores de más de 90 días. Las estadísticas persisten al recrear el contenedor y no se borran al cambiar de equipo. El aviso público está en `/privacidad`.
+
+Si hay un proxy inverso delante, configura `ANALYTICS_TRUST_PROXY` según [la guía de despliegue](docs/despliegue.md#estadísticas-y-proxy-inverso). El valor `cloudflare` contempla Cloudflare delante de un proxy local. Sin esta configuración se usa la dirección de la conexión directa y no se aceptan cabeceras de IP enviadas por visitantes.
 
 ## Instalar en Dockhand
 
@@ -73,7 +85,7 @@ Las copias guardadas con un formato anterior se renuevan en la primera consulta 
 
 El índice de grupos se conserva durante 24 horas por temporada y categoría. Las consultas al origen se limitan a cuatro simultáneas y se comparten cuando varios usuarios piden el mismo equipo. Solo se consulta la categoría necesaria, no se descarga toda la federación.
 
-La plantilla incluye los nombres deportivos publicados y el enlace a la ficha pública del jugador, construido con su identificador federativo. No se guarda ese identificador como un campo independiente. Se descartan fotografías, fechas de nacimiento, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. Los equipos tienen enlaces a sus fichas en los partidos y la clasificación. Si falta un identificador válido, el nombre se muestra sin enlace; no se adivinan fichas a partir de nombres. Los enlaces abren la web de la federación en otra pestaña. No hay analítica, publicidad, fuentes remotas ni servicios externos cargados en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
+La plantilla incluye los nombres deportivos publicados y el enlace a la ficha pública del jugador, construido con su identificador federativo. No se guarda ese identificador como un campo independiente. Se descartan fotografías, fechas de nacimiento, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. Los equipos tienen enlaces a sus fichas en los partidos y la clasificación. Si falta un identificador válido, el nombre se muestra sin enlace; no se adivinan fichas a partir de nombres. Los enlaces abren la web de la federación en otra pestaña. No hay analítica de terceros, publicidad, fuentes remotas ni servicios externos cargados en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
 
 La administración usa una contraseña definida en el servidor y sesiones con cookies `HttpOnly` y `SameSite=Strict`. Las sesiones duran 12 horas, se invalidan al cerrar sesión y no sobreviven a un reinicio del servidor. Los intentos fallidos están limitados. Sin una contraseña válida, el panel queda deshabilitado; una configuración pública ya guardada continúa disponible.
 
@@ -118,6 +130,8 @@ Las capturas de esas pruebas se guardan en `test-results/`, que Git ignora. La i
 | `DATA_DIR` | `./data` fuera de Docker, `/data` dentro | Configuración del equipo, caché e índice de grupos. |
 | `ADMIN_PASSWORD` | Sin valor predeterminado | Contraseña privada del panel: al menos 12 caracteres. Obligatoria en Compose. |
 | `COOKIE_SECURE` | `auto` | Activa `Secure` si la petición llega por HTTPS o el proxy indica `X-Forwarded-Proto: https`. `true` lo fuerza. |
+| `ANALYTICS_TRUST_PROXY` | Vacío | Proxies de confianza para la ubicación aproximada: `cloudflare` o direcciones/rangos CIDR separados por comas. |
+| `GEOIP_DATABASE` | Copia local incluida | Ruta opcional a una base MMDB de DB-IP City Lite actualizada. Requiere montar el archivo en el contenedor y pasar la variable. |
 | `TZ` | `Europe/Madrid` en Docker | Zona horaria del contenedor; los partidos usan la hora de Madrid. |
 
 No se necesitan claves de API ni credenciales de la federación. `/healthz` comprueba que el servidor responde, no la disponibilidad de la web externa.

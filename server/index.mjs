@@ -9,6 +9,12 @@ import { SiteSettings } from "./settings.mjs";
 import { AdminAuth } from "./auth.mjs";
 import { WeatherService } from "./weather.mjs";
 import { WeatherLocations } from "./weather-locations.mjs";
+import { Statistics, STATISTIC_VIEWS } from "./statistics.mjs";
+import {
+  deviceInfo,
+  visitorAddress,
+  VisitorLocation,
+} from "./visitor-info.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
@@ -18,6 +24,9 @@ export function createApp({
   cookieSecure = process.env.COOKIE_SECURE || "auto",
   weather,
   weatherLocations,
+  statistics,
+  visitorLocation,
+  analyticsTrustProxy = process.env.ANALYTICS_TRUST_PROXY || "",
 } = {}) {
   const federation = provider || new Federation({ directory });
   const cache = new SnapshotCache({
@@ -27,6 +36,8 @@ export function createApp({
   });
   const settings = new SiteSettings(directory);
   const auth = new AdminAuth({ password: adminPassword, clock, cookieSecure });
+  const stats = statistics || new Statistics({ directory, clock });
+  const ipLocation = visitorLocation || new VisitorLocation();
   const locations =
     weatherLocations || new WeatherLocations({ directory, clock });
   const weatherService =
@@ -52,7 +63,7 @@ export function createApp({
   const requests = new Map();
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
-    const key = req.socket.remoteAddress || "local",
+    const key = `${req.path.startsWith("/statistics/") ? "statistics" : "api"}:${req.socket.remoteAddress || "local"}`,
       now = Date.now();
     const recent = (requests.get(key) || []).filter((t) => now - t < 60_000);
     if (recent.length >= 90)
@@ -67,6 +78,71 @@ export function createApp({
     next();
   });
   app.use("/api/admin", express.json({ limit: "8kb" }));
+  app.get("/api/admin/statistics", auth.require, async (req, res, next) => {
+    const period = req.query.days === undefined ? 30 : Number(req.query.days);
+    if (![7, 30, 90].includes(period))
+      return res
+        .status(400)
+        .json({ error: "Elige un periodo de 7, 30 o 90 días." });
+    try {
+      res.json({
+        ...(await stats.summary(period)),
+        proxyConfigured: Boolean(analyticsTrustProxy.trim()),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post(
+    "/api/statistics/view",
+    express.json({ limit: "256b" }),
+    async (req, res) => {
+      let foreign = req.headers["sec-fetch-site"] === "cross-site";
+      try {
+        if (req.headers.origin)
+          foreign ||= new URL(req.headers.origin).host !== req.get("host");
+      } catch {
+        foreign = true;
+      }
+      if (foreign || req.headers["x-futboleros-event"] !== "1")
+        return res
+          .status(403)
+          .json({ error: "La petición no procede de esta web." });
+      const body = req.body;
+      if (
+        !body ||
+        !STATISTIC_VIEWS.includes(body.view) ||
+        typeof body.entry !== "boolean" ||
+        Object.keys(body).some((key) => !["view", "entry"].includes(key))
+      )
+        return res
+          .status(400)
+          .json({ error: "Evento de estadísticas no válido." });
+      if (
+        auth.authenticated(req) ||
+        req.headers.dnt === "1" ||
+        req.headers["sec-gpc"] === "1"
+      )
+        return res.sendStatus(204);
+      const device = deviceInfo(req.headers["user-agent"]);
+      if (!device) return res.sendStatus(204);
+      try {
+        const location = body.entry
+          ? await ipLocation.lookup(visitorAddress(req, analyticsTrustProxy))
+          : "No disponible";
+        await stats.record({
+          view: body.view,
+          entry: body.entry,
+          ...device,
+          location,
+        });
+        res.sendStatus(204);
+      } catch {
+        // Do not log request headers, addresses or individual events.
+        res.sendStatus(503);
+      }
+    },
+  );
   app.get("/api/admin/session", (req, res) =>
     res.json({
       available: auth.available,
@@ -301,8 +377,9 @@ export function createApp({
       },
     }),
   );
-  app.get(["/", "/admin", "/admin/"], (_req, res) =>
-    res.sendFile(path.join(dist, "index.html")),
+  app.get(
+    ["/", "/admin", "/admin/", "/privacidad", "/privacidad/"],
+    (_req, res) => res.sendFile(path.join(dist, "index.html")),
   );
   app.use((_req, res) =>
     res.status(404).type("text/plain").send("No encontrado."),

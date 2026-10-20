@@ -19,6 +19,7 @@ import type { Snapshot, Team } from "./types";
 import "./admin.css";
 import Brand from "./Brand";
 import WeatherSettings from "./WeatherSettings";
+import StatisticsPanel from "./StatisticsPanel";
 
 type PublicTeam = Pick<Team, "id" | "name" | "category">;
 type Config = { team: PublicTeam | null; updatedAt: string | null };
@@ -43,6 +44,7 @@ export default function Admin() {
   const [initializing, setInitializing] = useState(true);
   const [available, setAvailable] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [panel, setPanel] = useState<"settings" | "statistics">("settings");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [config, setConfig] = useState<Config>({ team: null, updatedAt: null });
@@ -151,6 +153,7 @@ export default function Admin() {
         body: JSON.stringify({ password }),
       });
       setPassword("");
+      setPanel("settings");
       setAuthenticated(true);
     } catch (e) {
       setError((e as Error).message);
@@ -337,186 +340,210 @@ export default function Admin() {
           </section>
         ) : (
           <>
-            <section className="panel admin-current">
-              <div className="section-header">
-                <div>
-                  <div className="eyebrow">LO QUE VE TODO EL MUNDO</div>
-                  <h2>Equipo público</h2>
-                </div>
-                <button className="secondary" onClick={logout} disabled={busy}>
-                  <LogOut size={15} />
-                  Cerrar sesión
-                </button>
-              </div>
-              <div className="admin-current-body">
-                <div className="admin-team-icon">
-                  <Shield size={34} />
-                </div>
-                <div>
-                  <h3>
-                    {config.team?.name ||
-                      "Todavía no hay un equipo configurado"}
-                  </h3>
-                  <p>
-                    {config.team?.category ||
-                      "Elige uno a continuación y pulsa Guardar equipo público."}
-                  </p>
-                  {config.updatedAt && (
-                    <small>
-                      Guardado el{" "}
-                      {new Date(config.updatedAt).toLocaleString("es-ES")}
-                    </small>
-                  )}
-                </div>
-                {config.team && (
-                  <span className="count-chip">
-                    <Check size={12} />
-                    Publicado
-                  </span>
-                )}
-              </div>
-            </section>
-            <section className="panel admin-editor">
-              <div className="section-header">
-                <div>
-                  <div className="eyebrow">PREPARA LA PRÓXIMA TEMPORADA</div>
-                  <h2>
-                    {config.team ? "Cambiar el equipo" : "Elegir el equipo"}
-                  </h2>
-                </div>
-                <Shield size={21} />
-              </div>
-              <p className="admin-description">
-                Busca el club o pega el enlace de la ficha. Elegir un resultado
-                permite revisarlo antes de guardarlo; la web pública seguirá
-                mostrando el equipo actual.
-              </p>
-              <form onSubmit={choose}>
-                <label htmlFor="admin-team-search">
-                  Nombre del club, enlace de la ficha o identificador
-                </label>
-                <div className="admin-search-line">
-                  <div className="search-field">
-                    <Search size={18} />
-                    <input
-                      id="admin-team-search"
-                      value={query}
-                      onChange={(e) => {
-                        previewRequest.current?.abort();
-                        setBusy(false);
-                        setQuery(e.target.value);
-                        setCandidate(null);
-                        setSuccess("");
-                      }}
-                      placeholder="Busca el club o pega su enlace…"
-                      autoComplete="off"
-                      maxLength={250}
-                      disabled={busy}
-                    />
-                    {searching && <LoaderCircle size={17} className="spin" />}
+            <nav
+              className="admin-tabs"
+              aria-label="Secciones de administración"
+            >
+              <button
+                className={panel === "settings" ? "active" : ""}
+                aria-current={panel === "settings" ? "page" : undefined}
+                onClick={() => setPanel("settings")}
+              >
+                Configuración
+              </button>
+              <button
+                className={panel === "statistics" ? "active" : ""}
+                aria-current={panel === "statistics" ? "page" : undefined}
+                onClick={() => setPanel("statistics")}
+              >
+                Estadísticas
+              </button>
+              <button className="secondary" onClick={logout} disabled={busy}>
+                <LogOut size={15} />
+                Cerrar sesión
+              </button>
+            </nav>
+            {panel === "statistics" && <StatisticsPanel />}
+            <div hidden={panel !== "settings"}>
+              <section className="panel admin-current">
+                <div className="section-header">
+                  <div>
+                    <div className="eyebrow">LO QUE VE TODO EL MUNDO</div>
+                    <h2>Equipo público</h2>
                   </div>
-                  <button
-                    className="secondary"
-                    disabled={busy || !query.trim()}
-                  >
-                    {busy ? (
-                      <LoaderCircle className="spin" size={16} />
-                    ) : (
-                      <Search size={16} />
-                    )}
-                    Revisar equipo
-                  </button>
                 </div>
-              </form>
-              {searchHint && (
-                <p className="search-more" role="status">
-                  {searchHint}
-                </p>
-              )}
-              <div className="search-results admin-results">
-                {results.map((t) => (
-                  <button
-                    key={t.id}
-                    disabled={busy}
-                    onClick={() => void preview(t.id)}
-                  >
-                    <Shield size={22} />
-                    <span>
-                      {t.name}
-                      <small>{t.category}</small>
+                <div className="admin-current-body">
+                  <div className="admin-team-icon">
+                    <Shield size={34} />
+                  </div>
+                  <div>
+                    <h3>
+                      {config.team?.name ||
+                        "Todavía no hay un equipo configurado"}
+                    </h3>
+                    <p>
+                      {config.team?.category ||
+                        "Elige uno a continuación y pulsa Guardar equipo público."}
+                    </p>
+                    {config.updatedAt && (
+                      <small>
+                        Guardado el{" "}
+                        {new Date(config.updatedAt).toLocaleString("es-ES")}
+                      </small>
+                    )}
+                  </div>
+                  {config.team && (
+                    <span className="count-chip">
+                      <Check size={12} />
+                      Publicado
                     </span>
-                    <ChevronRight size={17} />
-                  </button>
-                ))}
-              </div>
-              {candidate && (
-                <div className="admin-preview">
-                  <div className="eyebrow">AÚN SIN GUARDAR</div>
-                  <h3>{candidate.team.name}</h3>
-                  <p>
-                    {[
-                      candidate.team.category,
-                      candidate.team.group,
-                      candidate.team.season,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <div className="admin-preview-details">
-                    <span>{candidate.matches.length} partidos</span>
-                    <span>{candidate.squad.length} jugadores</span>
-                    <span>{candidate.standings.length} equipos en la liga</span>
-                  </div>
-                  {candidate.warnings.length > 0 && (
-                    <p className="search-more">
-                      {candidate.warnings.join(" ")}
-                    </p>
                   )}
-                  {candidate.stale && (
-                    <p className="search-more">
-                      La federación no está disponible; la revisión usa la
-                      última copia guardada.
-                    </p>
-                  )}
-                  <button className="primary" disabled={busy} onClick={save}>
-                    {busy ? (
-                      <LoaderCircle size={17} className="spin" />
-                    ) : (
-                      <Save size={17} />
-                    )}
-                    Guardar equipo público
-                  </button>
                 </div>
+              </section>
+              <section className="panel admin-editor">
+                <div className="section-header">
+                  <div>
+                    <div className="eyebrow">PREPARA LA PRÓXIMA TEMPORADA</div>
+                    <h2>
+                      {config.team ? "Cambiar el equipo" : "Elegir el equipo"}
+                    </h2>
+                  </div>
+                  <Shield size={21} />
+                </div>
+                <p className="admin-description">
+                  Busca el club o pega el enlace de la ficha. Elegir un
+                  resultado permite revisarlo antes de guardarlo; la web pública
+                  seguirá mostrando el equipo actual.
+                </p>
+                <form onSubmit={choose}>
+                  <label htmlFor="admin-team-search">
+                    Nombre del club, enlace de la ficha o identificador
+                  </label>
+                  <div className="admin-search-line">
+                    <div className="search-field">
+                      <Search size={18} />
+                      <input
+                        id="admin-team-search"
+                        value={query}
+                        onChange={(e) => {
+                          previewRequest.current?.abort();
+                          setBusy(false);
+                          setQuery(e.target.value);
+                          setCandidate(null);
+                          setSuccess("");
+                        }}
+                        placeholder="Busca el club o pega su enlace…"
+                        autoComplete="off"
+                        maxLength={250}
+                        disabled={busy}
+                      />
+                      {searching && <LoaderCircle size={17} className="spin" />}
+                    </div>
+                    <button
+                      className="secondary"
+                      disabled={busy || !query.trim()}
+                    >
+                      {busy ? (
+                        <LoaderCircle className="spin" size={16} />
+                      ) : (
+                        <Search size={16} />
+                      )}
+                      Revisar equipo
+                    </button>
+                  </div>
+                </form>
+                {searchHint && (
+                  <p className="search-more" role="status">
+                    {searchHint}
+                  </p>
+                )}
+                <div className="search-results admin-results">
+                  {results.map((t) => (
+                    <button
+                      key={t.id}
+                      disabled={busy}
+                      onClick={() => void preview(t.id)}
+                    >
+                      <Shield size={22} />
+                      <span>
+                        {t.name}
+                        <small>{t.category}</small>
+                      </span>
+                      <ChevronRight size={17} />
+                    </button>
+                  ))}
+                </div>
+                {candidate && (
+                  <div className="admin-preview">
+                    <div className="eyebrow">AÚN SIN GUARDAR</div>
+                    <h3>{candidate.team.name}</h3>
+                    <p>
+                      {[
+                        candidate.team.category,
+                        candidate.team.group,
+                        candidate.team.season,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <div className="admin-preview-details">
+                      <span>{candidate.matches.length} partidos</span>
+                      <span>{candidate.squad.length} jugadores</span>
+                      <span>
+                        {candidate.standings.length} equipos en la liga
+                      </span>
+                    </div>
+                    {candidate.warnings.length > 0 && (
+                      <p className="search-more">
+                        {candidate.warnings.join(" ")}
+                      </p>
+                    )}
+                    {candidate.stale && (
+                      <p className="search-more">
+                        La federación no está disponible; la revisión usa la
+                        última copia guardada.
+                      </p>
+                    )}
+                    <button className="primary" disabled={busy} onClick={save}>
+                      {busy ? (
+                        <LoaderCircle size={17} className="spin" />
+                      ) : (
+                        <Save size={17} />
+                      )}
+                      Guardar equipo público
+                    </button>
+                  </div>
+                )}
+                <div className="picker-hint">
+                  <Info size={16} />
+                  <p>
+                    Si no lo encuentras, abre su ficha en{" "}
+                    <a
+                      href="https://www.rffm.es"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      rffm.es <ExternalLink size={11} />
+                    </a>{" "}
+                    y pega aquí la dirección. Puedes usar este mismo panel
+                    cuando cambie de categoría.
+                  </p>
+                </div>
+              </section>
+              {config.team && (
+                <WeatherSettings
+                  teamVersion={`${config.team.id}:${config.updatedAt}`}
+                />
               )}
-              <div className="picker-hint">
-                <Info size={16} />
+              <div className="admin-info">
+                <LockKeyhole size={16} />
                 <p>
-                  Si no lo encuentras, abre su ficha en{" "}
-                  <a
-                    href="https://www.rffm.es"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    rffm.es <ExternalLink size={11} />
-                  </a>{" "}
-                  y pega aquí la dirección. Puedes usar este mismo panel cuando
-                  cambie de categoría.
+                  La selección se guarda en el servidor. Las visitas públicas
+                  pueden consultar la información y exportar el calendario, pero
+                  no cambiar el equipo. La sesión dura 12 horas y se cierra si
+                  se reinicia el servidor.
                 </p>
               </div>
-            </section>
-            {config.team && (
-              <WeatherSettings
-                teamVersion={`${config.team.id}:${config.updatedAt}`}
-              />
-            )}
-            <div className="admin-info">
-              <LockKeyhole size={16} />
-              <p>
-                La selección se guarda en el servidor. Las visitas públicas
-                pueden consultar la información y exportar el calendario, pero
-                no cambiar el equipo. La sesión dura 12 horas y se cierra si se
-                reinicia el servidor.
-              </p>
             </div>
           </>
         )}

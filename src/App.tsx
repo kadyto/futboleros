@@ -27,6 +27,7 @@ import FederationLink from "./FederationLink";
 import { teamProfileUrl, matchReportUrl } from "./federation-links";
 import PlayerCard from "./PlayerCard";
 import MatchWeather from "./MatchWeather";
+import useStatistics from "./useStatistics";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -285,6 +286,7 @@ export default function App() {
   const [calendarFilter, setCalendarFilter] = useState("upcoming");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  useStatistics(view, Boolean(data?.team));
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
@@ -413,6 +415,9 @@ export default function App() {
           </div>
           <a className="admin-access" href="/admin">
             Administración
+          </a>
+          <a className="admin-access" href="/privacidad">
+            Privacidad
           </a>
           <small>Futboleros · v0.2.0</small>
         </div>
@@ -655,7 +660,9 @@ export default function App() {
                             ) : (
                               <>
                                 <MapPin size={16} aria-hidden="true" />
-                                <span>{next.venue || "Campo por confirmar"}</span>
+                                <span>
+                                  {next.venue || "Campo por confirmar"}
+                                </span>
                               </>
                             )}
                           </div>

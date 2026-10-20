@@ -15,11 +15,15 @@
     "check": "tsc -b && node --check server/index.mjs"
   },
   "dependencies": {
+    "@ip-location-db/dbip-city-mmdb": "2.3.2026060513",
     "cheerio": "1.2.0",
     "express": "5.3.0",
     "lucide-react": "1.59.0",
+    "maxmind": "5.0.7",
+    "proxy-addr": "2.0.8",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "ua-parser-js": "1.0.41",
     "undici": "8.12.2"
   },
   "devDependencies": {

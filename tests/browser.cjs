@@ -18,6 +18,7 @@ const path = require("node:path");
     provider: fakeProvider(),
     adminPassword: TEST_PASSWORD,
     weather: fakeWeather(),
+    visitorLocation: { lookup: async () => "Madrid, España" },
   }).listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -34,6 +35,8 @@ const path = require("node:path");
       acceptDownloads: true,
       reducedMotion: "reduce",
       hasTouch: true,
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     });
     await publicContext.addInitScript(() =>
       localStorage.setItem(
@@ -45,6 +48,11 @@ const path = require("node:path");
       ),
     );
     const page = await publicContext.newPage();
+    const visits = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/statistics/view"))
+        visits.push(request.postDataJSON());
+    });
     await publicContext.route(
       /^https:\/\/www\.rffm\.es\/(?:ficha(?:equipo|jugador)|acta-partido)\/\d+$/,
       (route) =>
@@ -425,6 +433,70 @@ const path = require("node:path");
       path: "test-results/admin-mobile.png",
       fullPage: true,
     });
+    const androidContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36",
+    });
+    const android = await androidContext.newPage();
+    const counted = android.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/statistics/view") &&
+        response.status() === 204,
+    );
+    await android.goto(base);
+    await counted;
+    assert.deepEqual(await androidContext.cookies(), []);
+    assert.deepEqual(
+      await android.evaluate(() => Object.keys(localStorage)),
+      [],
+    );
+    await android.goto(base + "/privacidad");
+    await android.getByRole("heading", { name: "Privacidad." }).waitFor();
+    await androidContext.close();
+    await admin.setViewportSize({ width: 1100, height: 900 });
+    await admin
+      .getByRole("button", { name: "Estadísticas", exact: true })
+      .click();
+    await admin.getByTestId("statistics-entries").waitFor();
+    assert.ok(
+      Number(await admin.getByTestId("statistics-entries").textContent()) > 0,
+    );
+    assert.ok(
+      Number(await admin.getByTestId("statistics-views").textContent()) >
+        Number(await admin.getByTestId("statistics-entries").textContent()),
+    );
+    await admin.getByText("Samsung SM-G991B", { exact: true }).waitFor();
+    await admin.getByText("Madrid, España", { exact: true }).waitFor();
+    for (const days of ["7", "90"]) {
+      const loaded = admin.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/api/admin/statistics?days=${days}`) &&
+          response.ok(),
+      );
+      await admin.getByLabel("Periodo de estadísticas").selectOption(days);
+      await loaded;
+      await admin.getByTestId("statistics-entries").waitFor();
+    }
+    await admin.screenshot({
+      path: "test-results/statistics-desktop.png",
+      fullPage: true,
+    });
+    for (const width of [320, 390, 768]) {
+      await admin.setViewportSize({ width, height: 844 });
+      await admin.waitForFunction(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      );
+    }
+    await admin.setViewportSize({ width: 390, height: 844 });
+    await admin.screenshot({
+      path: "test-results/statistics-mobile.png",
+      fullPage: true,
+    });
+    for (const event of visits) {
+      assert.deepEqual(Object.keys(event).sort(), ["entry", "view"]);
+    }
+    assert.ok(visits.some((event) => event.entry === false));
     await admin.getByRole("button", { name: "Cerrar sesión" }).click();
     await admin.getByLabel("Contraseña de administración").waitFor();
     await admin.reload();
@@ -495,7 +567,7 @@ const path = require("node:path");
     await publicContext.close();
     await adminContext.close();
     console.log(
-      "Browser checks passed: admin flow, locked public team, current positions, estimates, direct Google Maps links, player and team profile links, missing data, four views, ICS, persistence, logout and mobile layouts.",
+      "Browser checks passed: admin flow, locked public team, current positions, estimates, direct Google Maps links, profile links, private statistics, privacy notice, four views, ICS, persistence, logout and mobile layouts.",
     );
   } finally {
     await browser.close();

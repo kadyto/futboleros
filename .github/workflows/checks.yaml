@@ -30,7 +30,7 @@ jobs:
       - name: Build and run container
         run: |
           docker build -t futboleros:test .
-          docker run -d --name futboleros-ci -e ADMIN_PASSWORD --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
+          docker run -d --name futboleros-ci -e ADMIN_PASSWORD -e ANALYTICS_TRUST_PROXY=cloudflare --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
           trap 'docker rm -f futboleros-ci; docker volume rm futboleros_ci_data' EXIT
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8093/healthz; then break; fi
@@ -41,7 +41,7 @@ jobs:
           node tests/container-smoke.mjs
           docker stop futboleros-ci
           docker rm futboleros-ci
-          docker run -d --name futboleros-ci -e ADMIN_PASSWORD --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
+          docker run -d --name futboleros-ci -e ADMIN_PASSWORD -e ANALYTICS_TRUST_PROXY=cloudflare --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=32m -v futboleros_ci_data:/data -p 127.0.0.1:8093:8000 futboleros:test
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8093/healthz; then break; fi
             sleep 1
