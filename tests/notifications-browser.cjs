@@ -54,6 +54,8 @@ const path = require("node:path");
       .waitFor();
     const context = await browser.newContext({
       viewport: { width: 1100, height: 900 },
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36",
     });
     const data = {
       endpoint: "https://fcm.googleapis.com/fcm/send/browser-test",
@@ -64,11 +66,12 @@ const path = require("node:path");
       expirationTime: null,
     };
     await context.addInitScript((data) => {
-      let subscribed = false;
+      let subscribed = sessionStorage.getItem("test-push-active") === "true";
       const subscription = {
         toJSON: () => data,
         unsubscribe: async () => {
           subscribed = false;
+          sessionStorage.removeItem("test-push-active");
           return true;
         },
       };
@@ -77,13 +80,14 @@ const path = require("node:path");
           getSubscription: async () => (subscribed ? subscription : null),
           subscribe: async () => {
             subscribed = true;
+            sessionStorage.setItem("test-push-active", "true");
             return subscription;
           },
         },
       };
       window.__notificationPermissionCalls = 0;
       class NotificationMock {
-        static permission = "default";
+        static permission = subscribed ? "granted" : "default";
         static async requestPermission() {
           window.__notificationPermissionCalls++;
           this.permission = "granted";
@@ -130,6 +134,68 @@ const path = require("node:path");
       1,
     );
     assert.equal((await push.list()).length, 1);
+    await admin
+      .getByRole("button", { name: "Actualizar lista", exact: true })
+      .click();
+    const deviceCard = admin.locator(".notification-device");
+    await deviceCard
+      .getByRole("heading", { name: "Móvil · Android" })
+      .waitFor();
+    await deviceCard
+      .getByText("Chrome · Samsung SM-G991B", { exact: true })
+      .waitFor();
+    await deviceCard
+      .getByText("Última sincronización", { exact: true })
+      .waitFor();
+    await deviceCard.getByText("Suscrito", { exact: true }).waitFor();
+    const firstId = (await push.list())[0].id;
+    await admin.locator(".notification-devices").scrollIntoViewIfNeeded();
+    await admin.screenshot({
+      path: "test-results/notification-devices-desktop.png",
+    });
+    for (const width of [320, 390, 768]) {
+      await admin.setViewportSize({ width, height: 844 });
+      await admin.waitForFunction(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      );
+    }
+    await admin.setViewportSize({ width: 390, height: 844 });
+    await deviceCard.scrollIntoViewIfNeeded();
+    await admin.screenshot({
+      path: "test-results/notification-devices-mobile.png",
+    });
+    await deviceCard.getByRole("button", { name: /^Dar de baja/ }).click();
+    await deviceCard
+      .getByRole("button", { name: "Cancelar", exact: true })
+      .click();
+    assert.equal((await push.list()).length, 1);
+    await deviceCard.getByRole("button", { name: /^Dar de baja/ }).click();
+    await deviceCard
+      .getByRole("button", { name: "Confirmar baja", exact: true })
+      .click();
+    await admin
+      .getByText("Todavía no hay dispositivos suscritos.", { exact: false })
+      .waitFor();
+    assert.equal((await push.list()).length, 0);
+    const refreshed = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith("/api/push/subscriptions"),
+    );
+    await page.reload();
+    assert.equal((await refreshed).status(), 404);
+    await page
+      .getByRole("button", { name: "Avisos de partidos", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Activar avisos en este dispositivo" })
+      .click();
+    await page
+      .getByRole("heading", { name: "Avisos activados en este dispositivo" })
+      .waitFor();
+    assert.equal((await push.list()).length, 1);
+    assert.notEqual((await push.list())[0].id, firstId);
+    await admin.setViewportSize({ width: 1100, height: 900 });
     await page
       .getByRole("button", { name: "Probar aviso", exact: true })
       .click();
@@ -220,7 +286,7 @@ const path = require("node:path");
     assert.equal(script, base + "/sw.js");
     await workerPage.close();
     console.log(
-      "Notification browser checks passed: opt-in without automatic prompts, activation, test delivery, unread markers, changed hours, calendar links, unsubscribe, mobile layouts and real worker installation.",
+      "Notification browser checks passed: opt-in without automatic prompts, activation, test delivery, unread markers, changed hours, calendar links, unsubscribe, private device list, confirmed admin removal without automatic reactivation, mobile layouts and real worker installation.",
     );
   } finally {
     await browser.close();

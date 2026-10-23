@@ -77,6 +77,16 @@ export default function Privacy() {
             de avisos y retirar el permiso desde los ajustes del navegador.
           </p>
           <p>
+            Para reconocer las suscripciones en el panel privado, se guardan el
+            tipo de dispositivo, sistema, navegador y modelo cuando aparece en
+            su encabezado normal, junto con las fechas de alta y última
+            sincronización. No se conserva el encabezado completo ni se
+            solicitan datos adicionales. La administración puede consultar esta
+            lista y dar de baja un dispositivo; la web pública no muestra sus
+            detalles. Abrir la web tras una baja no reactiva los avisos: debes
+            activarlos expresamente desde la campana.
+          </p>
+          <p>
             Los mensajes se cifran y se entregan a través del servicio push del
             navegador, que puede estar gestionado por Google, Mozilla, Apple o
             Microsoft. El servidor elimina las suscripciones que estos servicios

@@ -14,6 +14,10 @@ Si falla el origen, devuelve datos antiguos o un calendario inesperadamente vac�
 
 En Administración → Configuración → **Avisos de cambios en partidos** se muestran la última revisión correcta, la próxima, los dispositivos suscritos y las entregas pendientes. **Comprobar calendario ahora** permite adelantar una revisión sin esperar al siguiente día.
 
+La sección **Dispositivos que reciben avisos** muestra una tarjeta por suscripción: tipo de dispositivo, sistema, navegador y modelo cuando el encabezado normal lo comunica, referencia abreviada, fecha de alta y última sincronización. Esta última fecha refleja la apertura de la web o la activación de los avisos, no la conexión actual ni la entrega de una notificación. No identifica al propietario. **Actualizar lista** consulta el estado sin revisar de nuevo el calendario.
+
+**Dar de baja** pide confirmar y elimina la suscripción del servidor. Volver a abrir la página no la reactiva automáticamente; el visitante puede volver a activarla expresamente desde la campana. Las suscripciones anteriores siguen funcionando: sus detalles aparecerán cuando vuelvan a abrir la web. Solo la administración puede ver esta lista, que no incluye direcciones push ni claves.
+
 ## Activar en cada dispositivo
 
 1. Abre la web pública mediante HTTPS y pulsa la campana de la cabecera.
@@ -34,7 +38,7 @@ El volumen conserva:
 
 - `calendar-watch.json`: referencia del calendario, historial, próxima revisión y envíos pendientes.
 - `push-keys.json`: claves VAPID públicas y privadas.
-- `push-subscriptions.json`: direcciones de suscripción y claves de cifrado de los dispositivos.
+- `push-subscriptions.json`: direcciones de suscripción, claves de cifrado, descripción del navegador y fechas de alta y última sincronización de los dispositivos.
 
 Los archivos se escriben de forma atómica con permisos privados. Conserva los tres al actualizar o restaurar una copia; cambiar o perder las claves VAPID puede obligar a activar de nuevo las suscripciones. No compartas los archivos de claves y suscripciones.
 

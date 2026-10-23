@@ -360,13 +360,17 @@ export class CalendarWatch {
     const state = await this.read();
     const current =
       state.teamId === config.team?.id ? state : initial(config.team?.id);
+    const devices = await this.push.devices();
+    const subscribed = new Set(devices.map((device) => device.id));
     return {
       ...this.publicState(current),
       lastAttemptAt: current.lastAttemptAt,
       lastPushError: current.lastPushError,
-      subscriptions: (await this.push.list()).length,
+      subscriptions: devices.length,
+      devices,
       pendingDeliveries: current.outbox.reduce(
-        (sum, job) => sum + job.targets.length,
+        (sum, job) =>
+          sum + job.targets.filter((id) => subscribed.has(id)).length,
         0,
       ),
       checking: Boolean(this.pending),

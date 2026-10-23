@@ -12,6 +12,7 @@ import { WeatherLocations } from "./weather-locations.mjs";
 import { Statistics, STATISTIC_VIEWS } from "./statistics.mjs";
 import {
   deviceInfo,
+  notificationDeviceInfo,
   visitorAddress,
   VisitorLocation,
 } from "./visitor-info.mjs";
@@ -109,6 +110,24 @@ export function createApp({
       next(error);
     }
   });
+  app.delete(
+    "/api/admin/notifications/devices/:id",
+    auth.require,
+    auth.sameOrigin,
+    async (req, res, next) => {
+      try {
+        if (!/^[a-f0-9-]{36}$/.test(req.params.id))
+          return res.status(400).json({ error: "Dispositivo no válido." });
+        if (!(await push.remove(req.params.id)))
+          return res
+            .status(404)
+            .json({ error: "El dispositivo ya no está suscrito." });
+        res.json(await calendarWatch.status());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   app.post(
     "/api/admin/notifications/check",
     auth.require,
@@ -154,7 +173,23 @@ export function createApp({
   };
   app.post("/api/push/subscriptions", pushOrigin, async (req, res, next) => {
     try {
-      res.json(await push.subscribe(req.body));
+      res.json(
+        await push.subscribe(req.body, {
+          device: notificationDeviceInfo(req.headers["user-agent"]),
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.patch("/api/push/subscriptions", pushOrigin, async (req, res, next) => {
+    try {
+      res.json(
+        await push.subscribe(req.body, {
+          existingOnly: true,
+          device: notificationDeviceInfo(req.headers["user-agent"]),
+        }),
+      );
     } catch (error) {
       next(error);
     }

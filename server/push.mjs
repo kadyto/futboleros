@@ -150,7 +150,18 @@ export class PushService {
       (sub) => !sub.expirationTime || sub.expirationTime > this.clock(),
     );
   }
-  async subscribe(input) {
+  async devices() {
+    return (await this.list())
+      .map((sub) => ({
+        id: sub.id,
+        createdAt: sub.createdAt,
+        lastSeenAt: sub.lastSeenAt || null,
+        expirationTime: sub.expirationTime,
+        device: sub.device || null,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  async subscribe(input, { device = null, existingOnly = false } = {}) {
     const subscription = validateSubscription(input);
     if (
       subscription.expirationTime !== null &&
@@ -167,6 +178,11 @@ export class PushService {
       const old = value.subscriptions.find(
         (sub) => sub.endpoint === subscription.endpoint,
       );
+      if (!old && existingOnly)
+        throw failure(
+          "Los avisos no están activados para este dispositivo.",
+          404,
+        );
       if (
         old &&
         (!same(old.keys.auth, subscription.keys.auth) ||
@@ -182,6 +198,8 @@ export class PushService {
         ...subscription,
         id: old?.id || randomUUID(),
         createdAt: old?.createdAt || new Date(this.clock()).toISOString(),
+        lastSeenAt: new Date(this.clock()).toISOString(),
+        device: device || old?.device || null,
       };
       value.subscriptions = [
         ...value.subscriptions.filter((sub) => sub.id !== saved.id),
@@ -207,8 +225,10 @@ export class PushService {
     return sub;
   }
   async remove(id) {
-    await this.store.update((value) => {
+    return this.store.update((value) => {
+      const count = value.subscriptions.length;
       value.subscriptions = value.subscriptions.filter((sub) => sub.id !== id);
+      return value.subscriptions.length < count;
     });
   }
   async unsubscribe(input) {

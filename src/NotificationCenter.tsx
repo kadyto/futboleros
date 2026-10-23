@@ -120,7 +120,7 @@ export default function NotificationCenter({
       .then((registration) => registration?.pushManager.getSubscription())
       .then(async (subscription) => {
         if (!subscription) return;
-        await pushRequest("/api/push/subscriptions", subscription);
+        await pushRequest("/api/push/subscriptions", subscription, "PATCH");
         if (active) setEnabled(true);
       })
       .catch(() => {});

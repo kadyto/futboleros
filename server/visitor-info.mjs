@@ -99,6 +99,17 @@ export function deviceInfo(userAgent) {
   };
 }
 
+export function notificationDeviceInfo(userAgent) {
+  const info = deviceInfo(userAgent);
+  if (!info) return null;
+  return {
+    ...info,
+    browser:
+      label(new UAParser(userAgent.slice(0, 512)).getBrowser().name) ||
+      "No disponible",
+  };
+}
+
 export function visitorAddress(req, trustedProxies = "") {
   const preset = trustedProxies.trim() === "cloudflare";
   const trust = preset

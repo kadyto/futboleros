@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createECDH, randomBytes } from "node:crypto";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { setTimeout as pause } from "node:timers/promises";
@@ -17,9 +17,12 @@ import {
   validateSubscription,
 } from "../server/push.mjs";
 import { SiteSettings } from "../server/settings.mjs";
+import { notificationDeviceInfo } from "../server/visitor-info.mjs";
 import { fakeProvider, request, signIn, startTestApp } from "./helpers.mjs";
 
 const now = Date.parse("2026-10-23T10:00:00Z");
+const mobileAgent =
+  "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36";
 const fixture = () => ({
   id: "3001",
   round: 1,
@@ -480,5 +483,129 @@ test("notifications APIs expose only public history and require admin access or 
     (await readFile(path.join(dir, "push-keys.json"), "utf8")).includes(
       "privateKey",
     ),
+  );
+});
+
+test("shows only safe device details to administrators, upgrades legacy subscriptions and requires explicit activation after an admin removal", async (t) => {
+  const dir = await directory(t);
+  let time = now;
+  const push = new PushService({ directory: dir, clock: () => time });
+  const sub = subscription();
+  await push.subscribe(sub);
+  const file = path.join(dir, "push-subscriptions.json");
+  const legacy = JSON.parse(await readFile(file, "utf8"));
+  delete legacy.subscriptions[0].device;
+  delete legacy.subscriptions[0].lastSeenAt;
+  await writeFile(file, JSON.stringify(legacy));
+  const { url } = await startTestApp(t, { directory: dir, pushService: push });
+  const cookie = await signIn(url);
+  await request(url, "/api/admin/config", {
+    method: "PUT",
+    cookie,
+    body: { teamId: "1001" },
+  });
+  const status = async () =>
+    (await request(url, "/api/admin/notifications", { cookie })).json();
+  const [old] = (await status()).devices;
+  assert.equal(old.device, null);
+  assert.equal(old.lastSeenAt, null);
+  const route = `/api/admin/notifications/devices/${old.id}`;
+  assert.equal((await request(url, route, { method: "DELETE" })).status, 401);
+  assert.equal(
+    (
+      await request(url, route, {
+        method: "DELETE",
+        cookie,
+        headers: { Origin: "https://foreign.invalid" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(url, route, {
+        method: "DELETE",
+        cookie,
+        headers: { "X-Futboleros-Admin": "" },
+      })
+    ).status,
+    403,
+  );
+  const refresh = (extra = {}) =>
+    request(url, "/api/push/subscriptions", {
+      method: "PATCH",
+      body: { ...sub, device: { browser: "spoofed-client-metadata" } },
+      headers: { "X-Futboleros-Push": "1", "User-Agent": mobileAgent },
+      ...extra,
+    });
+  assert.equal((await refresh({ headers: {} })).status, 403);
+  assert.equal(
+    (await refresh({ body: { ...sub, keys: subscription().keys } })).status,
+    403,
+  );
+  time += 60_000;
+  assert.equal((await refresh()).status, 200);
+  const updated = await status();
+  assert.equal(updated.subscriptions, 1);
+  assert.equal(updated.devices[0].id, old.id);
+  assert.equal(updated.devices[0].createdAt, old.createdAt);
+  assert.equal(updated.devices[0].lastSeenAt, new Date(time).toISOString());
+  assert.deepEqual(updated.devices[0].device, {
+    device: "Móvil",
+    system: "Android",
+    model: "Samsung SM-G991B",
+    browser: "Chrome",
+  });
+  assert.deepEqual(Object.keys(updated.devices[0]).sort(), [
+    "createdAt",
+    "device",
+    "expirationTime",
+    "id",
+    "lastSeenAt",
+  ]);
+  assert.doesNotMatch(
+    JSON.stringify(updated),
+    /endpoint|p256dh|privateKey|Mozilla|spoofed-client-metadata/,
+  );
+  assert.deepEqual(
+    await new PushService({ directory: dir, clock: () => time }).devices(),
+    updated.devices,
+  );
+  assert.equal(notificationDeviceInfo(undefined), null);
+  assert.equal(
+    notificationDeviceInfo(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    ).system,
+    "Windows",
+  );
+  const removed = await request(url, route, { method: "DELETE", cookie });
+  assert.equal(removed.status, 200);
+  assert.deepEqual((await removed.json()).devices, []);
+  assert.equal(
+    (await request(url, route, { method: "DELETE", cookie })).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(url, "/api/admin/notifications/devices/invalid", {
+        method: "DELETE",
+        cookie,
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await refresh()).status, 404);
+  assert.equal((await push.list()).length, 0);
+  assert.equal((await refresh({ method: "POST" })).status, 200);
+  assert.notEqual((await status()).devices[0].id, old.id);
+  const publicFeed = await (await request(url, "/api/notifications")).json();
+  assert.doesNotMatch(
+    JSON.stringify(publicFeed),
+    /devices|lastSeenAt|browser|endpoint|subscriptions/,
+  );
+  const saved = await readFile(file, "utf8");
+  assert.doesNotMatch(
+    saved,
+    /Mozilla|userAgent|8\.8\.8\.8|spoofed-client-metadata/,
   );
 });

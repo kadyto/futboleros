@@ -57,6 +57,8 @@ Cada visitante puede pulsar **Activar avisos en este dispositivo** en la campana
 
 No se necesitan claves de API ni servicios adicionales: las claves VAPID, las suscripciones y la siguiente revisión se conservan automáticamente en `/data`. En administración se puede ver el estado y pulsar **Comprobar calendario ahora**. Consulta [la guía de avisos](docs/avisos.md) para activación, copias, reintentos y diagnóstico.
 
+El panel también muestra las tarjetas de dispositivos suscritos, con su sistema, navegador, modelo si está disponible y fechas de alta y última sincronización. Permite actualizar la lista y dar de baja una suscripción con confirmación. Los detalles proceden del encabezado normal del navegador y se mantienen separados de las estadísticas.
+
 ## Instalar en Dockhand
 
 Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Define `ADMIN_PASSWORD` en las variables del stack con una contraseña propia de al menos 12 caracteres. Construye y despliega el stack. No necesitas clonar el repositorio ni elegir rutas de almacenamiento.

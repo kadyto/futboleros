@@ -742,13 +742,13 @@
   line-height: 1.8;
   color: #6e805b;
 }
-.admin-notifications-body dl {
+.admin-notifications-body .notification-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin: 18px 0;
 }
-.admin-notifications-body dl > div {
+.admin-notifications-body .notification-metrics > div {
   padding: 12px;
   background: #f5f7ef;
   border-radius: 8px;
@@ -773,5 +773,117 @@
 @media (max-width: 650px) {
   .admin-notifications-body {
     padding: 0 16px 18px;
+  }
+}
+
+.notification-devices {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 22px;
+}
+.notification-devices-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.notification-devices h3 {
+  font-size: 15px;
+}
+.notification-devices button {
+  font-size: 11px;
+}
+.notification-device-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.notification-device {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffefb;
+  min-width: 0;
+}
+.notification-device-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.notification-device-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #edf2e4;
+  flex-shrink: 0;
+}
+.notification-device-heading > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notification-device h4 {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.notification-device-heading p {
+  font-size: 11px;
+}
+.notification-device-heading small {
+  font-size: 10px;
+  color: #78886d;
+}
+.notification-device-badge {
+  background: #eaf0de;
+  color: #476137;
+  border-radius: 12px;
+  font-size: 9px;
+  padding: 5px 7px;
+}
+.notification-device-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 18px 0;
+}
+.notification-device-dates dd {
+  line-height: 1.7;
+}
+.notification-device-remove {
+  color: #8c4936;
+}
+.notification-device-confirm {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.notification-device-confirm > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.notification-devices-empty {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: #f5f7ef;
+  border-radius: 9px;
+  padding: 18px;
+}
+.notification-devices-empty > svg {
+  flex-shrink: 0;
+  color: #78886d;
+}
+@media (max-width: 650px) {
+  .notification-device-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .notification-device {
+    padding: 14px;
   }
 }
