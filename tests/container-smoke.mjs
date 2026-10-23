@@ -26,7 +26,8 @@ if (process.argv[2] !== "restored") {
     headers: {
       ...headers,
       "X-Futboleros-Event": "1",
-      "User-Agent": "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36",
       "X-Forwarded-For": "8.8.8.8, 104.16.1.1",
       "CF-Connecting-IP": "8.8.8.8",
     },
@@ -36,13 +37,39 @@ if (process.argv[2] !== "restored") {
   assert.equal(counted.headers.get("set-cookie"), null);
 }
 assert.equal((await fetch(base + "/api/admin/statistics")).status, 401);
-const stats = await (await fetch(base + "/api/admin/statistics?days=7", {
-  headers: { Cookie: cookie },
-})).json();
+assert.equal((await fetch(base + "/api/admin/notifications")).status, 401);
+const notices = await (
+  await fetch(base + "/api/admin/notifications", {
+    headers: { Cookie: cookie },
+  })
+).json();
+assert.ok(notices.lastCheckedAt && notices.nextCheckAt);
+assert.equal(
+  Date.parse(notices.nextCheckAt) - Date.parse(notices.lastCheckedAt),
+  24 * 60 * 60_000,
+);
+assert.equal(notices.pendingDeliveries, 0);
+const publicNotices = await (await fetch(base + "/api/notifications")).json();
+assert.deepEqual(publicNotices.events, []);
+const pushConfig = await (await fetch(base + "/api/push/config")).json();
+assert.deepEqual(Object.keys(pushConfig), ["publicKey"]);
+assert.equal(Buffer.from(pushConfig.publicKey, "base64url").length, 65);
+const worker = await fetch(base + "/sw.js");
+assert.equal(worker.status, 200);
+assert.equal(worker.headers.get("cache-control"), "no-cache");
+assert.match(await worker.text(), /notificationclick/);
+const stats = await (
+  await fetch(base + "/api/admin/statistics?days=7", {
+    headers: { Cookie: cookie },
+  })
+).json();
 assert.deepEqual(stats.totals, { entries: 1, views: 1 });
 assert.deepEqual(stats.devices, [{ name: "Móvil", count: 1 }]);
 assert.match(stats.locations[0].name, /Estados Unidos/);
-assert.doesNotMatch(JSON.stringify(stats), /8\.8\.8\.8|104\.16\.1\.1|Mozilla|userAgent/);
+assert.doesNotMatch(
+  JSON.stringify(stats),
+  /8\.8\.8\.8|104\.16\.1\.1|Mozilla|userAgent/,
+);
 const result = await fetch(base + "/api/team");
 assert.equal(result.status, 200);
 const value = await result.json();

@@ -15,6 +15,28 @@ function snapshot() {
   v.team.id = "1001";
   return v;
 }
+test("a forced calendar check bypasses a fresh cache and coalesces concurrent forced loads", async (t) => {
+  const dir = await directory(t);
+  let calls = 0;
+  const cache = new SnapshotCache({
+    directory: dir,
+    loader: async (_id, options) => {
+      calls++;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const value = snapshot();
+      value.matches[0].time = options.force ? "13:30" : "10:00";
+      return value;
+    },
+  });
+  assert.equal((await cache.get("1001")).matches[0].time, "10:00");
+  const values = await Promise.all([
+    cache.get("1001", { force: true }),
+    cache.get("1001", { force: true }),
+  ]);
+  assert.equal(calls, 2);
+  assert.equal(values[0].matches[0].time, "13:30");
+  assert.equal((await cache.get("1001")).matches[0].time, "13:30");
+});
 test("coalesces concurrent requests and restores persisted snapshots after restart", async (t) => {
   const dir = await directory(t);
   let calls = 0;

@@ -24,15 +24,20 @@ export class SnapshotCache {
     this.memory = new Map();
     this.retryAt = new Map();
   }
-  async get(id) {
+  async get(id, { force = false } = {}) {
     if (!/^\d{1,12}$/.test(id))
       throw new Error("Identificador de equipo no válido.");
-    if (this.pending.has(id)) return this.pending.get(id);
-    const task = this.#get(id).finally(() => this.pending.delete(id));
-    this.pending.set(id, task);
+    const pending = this.pending.get(id);
+    if (pending) {
+      if (!force || pending.force) return pending.task;
+      await pending.task;
+      return this.get(id, { force });
+    }
+    const task = this.#get(id, force).finally(() => this.pending.delete(id));
+    this.pending.set(id, { task, force });
     return task;
   }
-  async #get(id) {
+  async #get(id, force) {
     let old = this.memory.get(id);
     if (!old) {
       try {
@@ -53,15 +58,16 @@ export class SnapshotCache {
       if (old) this.memory.set(id, old);
     }
     if (
+      !force &&
       old?.cacheVersion === CACHE_SCHEMA_VERSION &&
       this.clock() - Date.parse(old.updatedAt) < this.ttl
     )
       return publicSnapshot(old, false);
-    if (old && this.clock() < (this.retryAt.get(id) || 0))
+    if (!force && old && this.clock() < (this.retryAt.get(id) || 0))
       return publicSnapshot(old, true);
     try {
       const fresh = {
-        ...(await this.loader(id)),
+        ...(await this.loader(id, { force })),
         updatedAt: new Date(this.clock()).toISOString(),
         stale: false,
         cacheVersion: CACHE_SCHEMA_VERSION,

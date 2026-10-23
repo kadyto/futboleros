@@ -49,6 +49,14 @@ Solo se guardan contadores diarios separados en `/data/statistics.json`, sin reg
 
 Si hay un proxy inverso delante, configura `ANALYTICS_TRUST_PROXY` según [la guía de despliegue](docs/despliegue.md#estadísticas-y-proxy-inverso). El valor `cloudflare` contempla Cloudflare delante de un proxy local. Sin esta configuración se usa la dirección de la conexión directa y no se aceptan cabeceras de IP enviadas por visitantes.
 
+## Avisos de cambios en partidos
+
+El servidor comprueba el calendario cada 24 horas aunque nadie visite la web. La campana muestra cambios de fecha, hora, campo, jornada, equipos y aplazamientos, además de nuevos partidos publicados, con los valores anterior y nuevo. La primera revisión de cada equipo o temporada establece una referencia y no envía avisos antiguos. Si falla el origen, se conserva esa referencia y se reintenta a los 15 minutos.
+
+Cada visitante puede pulsar **Activar avisos en este dispositivo** en la campana y conceder el permiso del navegador para recibir notificaciones Web Push con la página cerrada. Son opcionales y requieren HTTPS y un navegador compatible. En iPhone o iPad se necesita iOS/iPadOS 16.4 o posterior y abrir la web desde un icono añadido a la pantalla de inicio. El historial se puede consultar sin activar notificaciones. La entrega depende también de los permisos y del funcionamiento en segundo plano del navegador y el sistema.
+
+No se necesitan claves de API ni servicios adicionales: las claves VAPID, las suscripciones y la siguiente revisión se conservan automáticamente en `/data`. En administración se puede ver el estado y pulsar **Comprobar calendario ahora**. Consulta [la guía de avisos](docs/avisos.md) para activación, copias, reintentos y diagnóstico.
+
 ## Instalar en Dockhand
 
 Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Define `ADMIN_PASSWORD` en las variables del stack con una contraseña propia de al menos 12 caracteres. Construye y despliega el stack. No necesitas clonar el repositorio ni elegir rutas de almacenamiento.
@@ -85,7 +93,7 @@ Las copias guardadas con un formato anterior se renuevan en la primera consulta 
 
 El índice de grupos se conserva durante 24 horas por temporada y categoría. Las consultas al origen se limitan a cuatro simultáneas y se comparten cuando varios usuarios piden el mismo equipo. Solo se consulta la categoría necesaria, no se descarga toda la federación.
 
-La plantilla incluye los nombres deportivos publicados y el enlace a la ficha pública del jugador, construido con su identificador federativo. No se guarda ese identificador como un campo independiente. Se descartan fotografías, fechas de nacimiento, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. Los equipos tienen enlaces a sus fichas en los partidos y la clasificación. Si falta un identificador válido, el nombre se muestra sin enlace; no se adivinan fichas a partir de nombres. Los enlaces abren la web de la federación en otra pestaña. No hay analítica de terceros, publicidad, fuentes remotas ni servicios externos cargados en el navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
+La plantilla incluye los nombres deportivos publicados y el enlace a la ficha pública del jugador, construido con su identificador federativo. No se guarda ese identificador como un campo independiente. Se descartan fotografías, fechas de nacimiento, direcciones, teléfonos y correos que puedan aparecer en la respuesta de origen. Los equipos tienen enlaces a sus fichas en los partidos y la clasificación. Si falta un identificador válido, el nombre se muestra sin enlace; no se adivinan fichas a partir de nombres. Los enlaces abren la web de la federación en otra pestaña. No se cargan publicidad, fuentes remotas ni scripts de analítica de terceros. Las notificaciones opcionales usan el servicio push del navegador. La elección del equipo se guarda en `/data/settings.json`; no depende del almacenamiento del navegador.
 
 La administración usa una contraseña definida en el servidor y sesiones con cookies `HttpOnly` y `SameSite=Strict`. Las sesiones duran 12 horas, se invalidan al cerrar sesión y no sobreviven a un reinicio del servidor. Los intentos fallidos están limitados. Sin una contraseña válida, el panel queda deshabilitado; una configuración pública ya guardada continúa disponible.
 
@@ -132,6 +140,7 @@ Las capturas de esas pruebas se guardan en `test-results/`, que Git ignora. La i
 | `COOKIE_SECURE` | `auto` | Activa `Secure` si la petición llega por HTTPS o el proxy indica `X-Forwarded-Proto: https`. `true` lo fuerza. |
 | `ANALYTICS_TRUST_PROXY` | Vacío | Proxies de confianza para la ubicación aproximada: `cloudflare` o direcciones/rangos CIDR separados por comas. |
 | `GEOIP_DATABASE` | Copia local incluida | Ruta opcional a una base MMDB de DB-IP City Lite actualizada. Requiere montar el archivo en el contenedor y pasar la variable. |
+| `PUSH_SUBJECT` | URL pública del proyecto | URL HTTPS o URI `mailto:` de contacto para identificar el envío Web Push mediante VAPID. No requiere claves de proveedor. |
 | `TZ` | `Europe/Madrid` en Docker | Zona horaria del contenedor; los partidos usan la hora de Madrid. |
 
 No se necesitan claves de API ni credenciales de la federación. `/healthz` comprueba que el servidor responde, no la disponibilidad de la web externa.

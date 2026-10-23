@@ -123,7 +123,9 @@ export function parseMatches(raw, teamId) {
         `${m.estado ?? ""} ${m.estado_partido ?? ""}`,
       );
       matches.push({
-        id: String(m.codacta || `${homeId}-${awayId}-${ri}-${mi}`),
+        id: /^[1-9]\d{0,11}$/.test(String(m.codacta))
+          ? String(m.codacta)
+          : `${homeId}-${awayId}-${ri}-${mi}`,
         round: Number.parseInt(round.jornada, 10) || ri + 1,
         home: clean(m.equipo_local),
         away: clean(m.equipo_visitante),
@@ -303,7 +305,7 @@ export class Federation {
     }
     return null;
   }
-  async snapshot(id) {
+  async snapshot(id, { force = false } = {}) {
     const raw = (await this.page(`/fichaequipo/${id}`)).team;
     const team = parseTeam(raw, id),
       squad = parseSquad(raw);
@@ -344,11 +346,13 @@ export class Federation {
       grupo: membership.groupId,
     });
     const [calendarPage, standingsRaw] = await Promise.all([
-      this.cached(
-        `calendar:${query}`,
-        () => this.page(`/competicion/calendario?${query}`),
-        15 * 60_000,
-      ),
+      force
+        ? this.page(`/competicion/calendario?${query}`)
+        : this.cached(
+            `calendar:${query}`,
+            () => this.page(`/competicion/calendario?${query}`),
+            15 * 60_000,
+          ),
       this.cached(
         `standings:${membership.groupId}`,
         () =>

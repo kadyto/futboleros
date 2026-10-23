@@ -67,6 +67,28 @@ export default function Privacy() {
             </a>
             .
           </p>
+          <h2>Avisos de cambios en partidos</h2>
+          <p>
+            Las notificaciones son opcionales y se activan en cada dispositivo
+            mediante el permiso del navegador. Para enviarlas, el servidor
+            conserva la dirección de suscripción del servicio push del navegador
+            y sus claves de cifrado. No se usan para identificar visitas ni se
+            mezclan con las estadísticas. Puedes desactivarlas desde la campana
+            de avisos y retirar el permiso desde los ajustes del navegador.
+          </p>
+          <p>
+            Los mensajes se cifran y se entregan a través del servicio push del
+            navegador, que puede estar gestionado por Google, Mozilla, Apple o
+            Microsoft. El servidor elimina las suscripciones que estos servicios
+            indican como caducadas. No se guarda la IP con la suscripción.
+          </p>
+          <p>
+            El historial de cambios del calendario se conserva durante un máximo
+            de 90 días y los envíos pendientes se reintentan durante un máximo
+            de 24 horas. El navegador puede guardar la fecha del último aviso
+            leído para mostrar el contador de avisos nuevos; este ajuste
+            funcional no identifica al visitante en el servidor.
+          </p>
           <h2>Información deportiva y administración</h2>
           <p>
             La información deportiva procede de las fichas públicas de la

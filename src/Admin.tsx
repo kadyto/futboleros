@@ -20,6 +20,7 @@ import "./admin.css";
 import Brand from "./Brand";
 import WeatherSettings from "./WeatherSettings";
 import StatisticsPanel from "./StatisticsPanel";
+import NotificationSettings from "./NotificationSettings";
 
 type PublicTeam = Pick<Team, "id" | "name" | "category">;
 type Config = { team: PublicTeam | null; updatedAt: string | null };
@@ -531,9 +532,14 @@ export default function Admin() {
                 </div>
               </section>
               {config.team && (
-                <WeatherSettings
-                  teamVersion={`${config.team.id}:${config.updatedAt}`}
-                />
+                <>
+                  <NotificationSettings
+                    teamVersion={`${config.team.id}:${config.updatedAt}`}
+                  />
+                  <WeatherSettings
+                    teamVersion={`${config.team.id}:${config.updatedAt}`}
+                  />
+                </>
               )}
               <div className="admin-info">
                 <LockKeyhole size={16} />

@@ -27,6 +27,7 @@ jobs:
         run: |
           npm install --prefix /tmp/futboleros-browser --no-audit --no-fund playwright-core
           PLAYWRIGHT_MODULE=/tmp/futboleros-browser/node_modules/playwright-core CHROMIUM_PATH=/usr/bin/google-chrome node tests/browser.cjs
+          PLAYWRIGHT_MODULE=/tmp/futboleros-browser/node_modules/playwright-core CHROMIUM_PATH=/usr/bin/google-chrome node tests/notifications-browser.cjs
       - name: Build and run container
         run: |
           docker build -t futboleros:test .

@@ -84,10 +84,16 @@ test("discovers the current competition and group, fetches calendar and standing
   );
   t.after(() => rm(directory, { recursive: true, force: true }));
   let groupCalls = 0;
+  let calendarCalls = 0;
+  let calendarTime = "10:30";
   const getText = async (url) => {
     if (url === "/fichaequipo/1001") return page({ team: rawTeam });
-    if (url.startsWith("/competicion/calendario?"))
-      return page({ calendar: rawCalendar });
+    if (url.startsWith("/competicion/calendario?")) {
+      calendarCalls++;
+      const calendar = structuredClone(rawCalendar);
+      calendar.rounds[1].equipos[0].hora = calendarTime;
+      return page({ calendar });
+    }
     throw Error(`Unexpected page ${url}`);
   };
   const getJson = async (url) => {
@@ -116,6 +122,15 @@ test("discovers the current competition and group, fetches calendar and standing
   assert.equal(snapshot.matches.length, 2);
   assert.equal(snapshot.standings.length, 1);
   assert.equal(snapshot.squad.length, 1);
+  assert.equal(snapshot.matches[1].time, "10:30");
+  calendarTime = "12:45";
+  assert.equal((await p.snapshot("1001")).matches[1].time, "10:30");
+  assert.equal(calendarCalls, 1);
+  assert.equal(
+    (await p.snapshot("1001", { force: true })).matches[1].time,
+    "12:45",
+  );
+  assert.equal(calendarCalls, 2);
   p = new Federation({ directory, getText, getJson });
   snapshot = await p.snapshot("1001");
   assert.equal(groupCalls, 1);

@@ -15,6 +15,8 @@ import {
   visitorAddress,
   VisitorLocation,
 } from "./visitor-info.mjs";
+import { PushService } from "./push.mjs";
+import { CalendarWatch } from "./calendar-watch.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
@@ -27,15 +29,24 @@ export function createApp({
   statistics,
   visitorLocation,
   analyticsTrustProxy = process.env.ANALYTICS_TRUST_PROXY || "",
+  pushService,
 } = {}) {
   const federation = provider || new Federation({ directory });
   const cache = new SnapshotCache({
     directory,
-    loader: (id) => federation.snapshot(id),
+    loader: (id, options) => federation.snapshot(id, options),
     clock,
   });
   const settings = new SiteSettings(directory);
   const auth = new AdminAuth({ password: adminPassword, clock, cookieSecure });
+  const push = pushService || new PushService({ directory, clock });
+  const calendarWatch = new CalendarWatch({
+    directory,
+    settings,
+    push,
+    clock,
+    load: (id) => cache.get(id, { force: true }),
+  });
   const stats = statistics || new Statistics({ directory, clock });
   const ipLocation = visitorLocation || new VisitorLocation();
   const locations =
@@ -44,6 +55,7 @@ export function createApp({
     weather ||
     new WeatherService({ locate: (match) => locations.locate(match), clock });
   const app = express();
+  app.locals.calendarWatch = calendarWatch;
   app.disable("x-powered-by");
   app.set("query parser", "simple");
   app.use((req, res, next) => {
@@ -63,7 +75,12 @@ export function createApp({
   const requests = new Map();
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
-    const key = `${req.path.startsWith("/statistics/") ? "statistics" : "api"}:${req.socket.remoteAddress || "local"}`,
+    const group = req.path.startsWith("/statistics/")
+      ? "statistics"
+      : /^(?:\/notifications|\/push)/.test(req.path)
+        ? "notifications"
+        : "api";
+    const key = `${group}:${req.socket.remoteAddress || "local"}`,
       now = Date.now();
     const recent = (requests.get(key) || []).filter((t) => now - t < 60_000);
     if (recent.length >= 90)
@@ -78,6 +95,86 @@ export function createApp({
     next();
   });
   app.use("/api/admin", express.json({ limit: "8kb" }));
+  app.get("/api/notifications", async (_req, res, next) => {
+    try {
+      res.json(await calendarWatch.feed());
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get("/api/admin/notifications", auth.require, async (_req, res, next) => {
+    try {
+      res.json(await calendarWatch.status());
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post(
+    "/api/admin/notifications/check",
+    auth.require,
+    auth.sameOrigin,
+    async (_req, res, next) => {
+      try {
+        await calendarWatch.check({ force: true });
+        res.json(await calendarWatch.status());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  app.get("/api/push/config", async (_req, res, next) => {
+    try {
+      if (!(await settings.read()).team)
+        return res
+          .status(404)
+          .json({ error: "Todavía no hay un equipo configurado." });
+      res.json({ publicKey: await push.publicKey() });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.use("/api/push", express.json({ limit: "8kb" }));
+  const pushOrigin = async (req, res, next) => {
+    let foreign = req.headers["sec-fetch-site"] === "cross-site";
+    try {
+      if (req.headers.origin)
+        foreign ||= new URL(req.headers.origin).host !== req.get("host");
+      if (foreign || req.headers["x-futboleros-push"] !== "1")
+        return res
+          .status(403)
+          .json({ error: "La petición no procede de esta web." });
+      if (!(await settings.read()).team)
+        return res
+          .status(404)
+          .json({ error: "Todavía no hay un equipo configurado." });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+  app.post("/api/push/subscriptions", pushOrigin, async (req, res, next) => {
+    try {
+      res.json(await push.subscribe(req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.delete("/api/push/subscriptions", pushOrigin, async (req, res, next) => {
+    try {
+      await push.unsubscribe(req.body);
+      res.sendStatus(204);
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post("/api/push/test", pushOrigin, async (req, res, next) => {
+    try {
+      await push.test(req.body);
+      res.json({ sent: true });
+    } catch (error) {
+      next(error);
+    }
+  });
   app.get("/api/admin/statistics", auth.require, async (req, res, next) => {
     const period = req.query.days === undefined ? 30 : Number(req.query.days);
     if (![7, 30, 90].includes(period))
@@ -178,7 +275,9 @@ export function createApp({
           .json({ error: "Elige un equipo real antes de guardar." });
       try {
         const snapshot = await getSnapshot(id);
-        res.json(await settings.save(snapshot.team));
+        const config = await settings.save(snapshot.team);
+        await calendarWatch.setup(snapshot).catch(() => {});
+        res.json(config);
       } catch (e) {
         next(e);
       }
@@ -410,10 +509,14 @@ if (
   const server = app.listen(port, process.env.HOST || "0.0.0.0", () =>
     console.log(`Futboleros iniciado en el puerto ${port}`),
   );
+  app.locals.calendarWatch.start();
   server.requestTimeout = 120_000;
   for (const signal of ["SIGTERM", "SIGINT"])
     process.on(signal, () => {
-      server.close(() => process.exit(0));
+      const stopped = app.locals.calendarWatch.stop();
+      server.close(() => {
+        void stopped.finally(() => process.exit(0));
+      });
       setTimeout(() => process.exit(1), 10_000).unref();
     });
 }

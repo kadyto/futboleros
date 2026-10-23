@@ -731,3 +731,47 @@
     font-size: 11px;
   }
 }
+.admin-notifications {
+  margin-top: 24px;
+}
+.admin-notifications-body {
+  padding: 0 24px 24px;
+}
+.admin-notifications-body p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #6e805b;
+}
+.admin-notifications-body dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.admin-notifications-body dl > div {
+  padding: 12px;
+  background: #f5f7ef;
+  border-radius: 8px;
+}
+.admin-notifications-body dt {
+  font-size: 10px;
+  color: #78886d;
+  margin-bottom: 6px;
+}
+.admin-notifications-body dd {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+.admin-notifications-body .notice {
+  margin: 12px 0;
+}
+.admin-notifications-body .notification-help {
+  margin-top: 14px;
+  font-size: 11px;
+}
+@media (max-width: 650px) {
+  .admin-notifications-body {
+    padding: 0 16px 18px;
+  }
+}

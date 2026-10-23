@@ -24,7 +24,8 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "ua-parser-js": "1.0.41",
-    "undici": "8.12.2"
+    "undici": "8.12.2",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

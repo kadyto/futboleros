@@ -41,7 +41,7 @@ Para fijar una versión, sustituye `#main` en el contexto Git del compose de Doc
 
 ## Almacenamiento
 
-`/data/settings.json` contiene el equipo público configurado. `/data/weather-locations.json` conserva las ubicaciones de campos confirmadas y `/data/statistics.json` los contadores diarios de visitas. El resto de archivos son instantáneas e índices de grupos. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva los tres archivos de configuración y estadísticas para mantener esos datos. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
+`/data/settings.json` contiene el equipo público configurado. `/data/weather-locations.json` conserva las ubicaciones de campos confirmadas y `/data/statistics.json` los contadores diarios de visitas. Los archivos de notificaciones que también hay que conservar se describen más abajo; los archivos de caché e índices de grupos pueden reconstruirse. La contraseña se recibe por variable de entorno y no se copia a esos archivos. La caché se puede reconstruir consultando la federación; conserva los archivos de configuración, estadísticas y notificaciones para mantener esos datos. Detener el contenedor antes de hacer una copia garantiza una copia coherente. No uses `docker compose down -v` si quieres conservar el volumen.
 
 El equipo es común a todos los navegadores. Borrar los datos de un navegador no altera la selección. Cerrar sesión o reiniciar el contenedor tampoco cambia el equipo.
 
@@ -68,6 +68,14 @@ Para otros proxies, indica sus IP o rangos CIDR separados por comas, por ejemplo
 Reconstruye y recrea el servicio después de actualizar el compose y las variables. La IP solo se utiliza de forma transitoria para consultar una base local. Las estadísticas no guardan la IP ni la envían a proveedores. Los registros propios de Cloudflare y del proxy son independientes; revisa su configuración si quieres limitar también esos registros.
 
 La base incluida corresponde a la versión de datos instalada, no se descarga en cada visita. Para sustituirla por una edición posterior, descarga una base **DB-IP City Lite MMDB** de su fuente oficial, móntala como archivo de solo lectura y define `GEOIP_DATABASE` con la ruta dentro del contenedor. El lector admite los campos de DB-IP `country_code`, `state1` y `city`. Conserva la atribución de DB-IP y la licencia CC BY 4.0. Si no hay datos para una IP o falla la base, la visita se cuenta con ubicación «No disponible».
+
+## Notificaciones de partidos
+
+El mismo contenedor ejecuta la revisión diaria del calendario y conserva la referencia y la cola de avisos en el volumen. Mantén encendido el servicio; no se necesita cron externo. Tras reconstruir, cada dispositivo puede activar los avisos desde la campana de la web pública mediante HTTPS. Las claves se generan automáticamente. La variable opcional `PUSH_SUBJECT` identifica una URL o dirección de contacto del operador.
+
+Incluye en las copias `calendar-watch.json`, `push-keys.json` y `push-subscriptions.json`, además de la configuración existente. No borres las claves al actualizar: las suscripciones dependen de ellas. El contenedor necesita HTTPS saliente tanto a la federación como a los servicios push de los navegadores suscritos. La configuración de IP de confianza de las estadísticas no modifica los permisos de notificaciones.
+
+Consulta [la guía de avisos](avisos.md) para instalar en iPhone, probar la entrega, revisar permisos y diagnosticar fallos.
 
 ## Diagnóstico
 

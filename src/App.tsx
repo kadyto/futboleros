@@ -28,6 +28,7 @@ import { teamProfileUrl, matchReportUrl } from "./federation-links";
 import PlayerCard from "./PlayerCard";
 import MatchWeather from "./MatchWeather";
 import useStatistics from "./useStatistics";
+import NotificationCenter from "./NotificationCenter";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -280,7 +281,11 @@ function Empty({
 
 export default function App() {
   const [data, setData] = useState<Snapshot | null>(null);
-  const [view, setView] = useState<View>("overview");
+  const [view, setView] = useState<View>(() =>
+    new URLSearchParams(window.location.search).get("view") === "calendar"
+      ? "calendar"
+      : "overview",
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [calendarFilter, setCalendarFilter] = useState("upcoming");
@@ -452,6 +457,16 @@ export default function App() {
                 <span />
                 {team.season || "Temporada actual"}
               </span>
+            )}
+            {team && (
+              <NotificationCenter
+                key={team.id}
+                teamId={team.id}
+                onCalendar={() => {
+                  setCalendarFilter("all");
+                  navigate("calendar");
+                }}
+              />
             )}
             <a
               className="icon-button"
