@@ -887,3 +887,105 @@
     padding: 14px;
   }
 }
+.manual-notification {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 22px;
+}
+.manual-notification h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.manual-notification form {
+  margin-top: 18px;
+}
+.manual-notification label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 7px;
+}
+.manual-notification label span {
+  font-size: 10px;
+  color: #78886d;
+}
+.manual-notification input,
+.manual-notification textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 11px 12px;
+  border: 1px solid #dfe4d7;
+  border-radius: 8px;
+  background: #fffefb;
+  color: var(--green);
+}
+.manual-notification textarea {
+  resize: vertical;
+  min-height: 105px;
+}
+.manual-notification-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+.manual-notification-actions button {
+  font-size: 11px;
+}
+.manual-notification-actions > small {
+  font-size: 11px;
+  color: #78886d;
+}
+.manual-notification-preview {
+  padding: 20px;
+  margin: 18px 0;
+  border: 1px solid #dce5cd;
+  border-radius: 12px;
+  background: #f5f7ef;
+  overflow-wrap: anywhere;
+}
+.manual-notification-preview > small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #6e805b;
+  margin-bottom: 14px;
+}
+.manual-notification h4 {
+  font-size: 14px;
+  margin: 0 0 9px;
+  line-height: 1.7;
+}
+.manual-notification-preview p,
+.manual-notification-history p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.manual-notification-history {
+  margin-top: 20px;
+}
+.manual-notification-history summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.manual-notification-history article {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.manual-notification-history time {
+  display: block;
+  font-size: 10px;
+  color: #78886d;
+  margin-bottom: 8px;
+}

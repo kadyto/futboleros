@@ -59,6 +59,8 @@ No se necesitan claves de API ni servicios adicionales: las claves VAPID, las su
 
 El panel también muestra las tarjetas de dispositivos suscritos, con su sistema, navegador, modelo si está disponible y fechas de alta y última sincronización. Permite actualizar la lista y dar de baja una suscripción con confirmación. Los detalles proceden del encabezado normal del navegador y se mantienen separados de las estadísticas.
 
+En **Enviar una notificación** puedes escribir un título y un mensaje, revisar la vista previa y confirmar el envío; por ejemplo, para anunciar un resultado al terminar el partido. Se publica también en la campana y al pulsarlo se abren los resultados. El envío manual no espera a la revisión diaria ni necesita consultar la federación. Conserva los reintentos en el volumen y evita duplicar el mismo aviso si se reintenta su petición.
+
 ## Instalar en Dockhand
 
 Crea un stack y pega el contenido de [compose.dockhand.yaml](compose.dockhand.yaml). Define `ADMIN_PASSWORD` en las variables del stack con una contraseña propia de al menos 12 caracteres. Construye y despliega el stack. No necesitas clonar el repositorio ni elegir rutas de almacenamiento.

@@ -110,6 +110,18 @@ export function createApp({
       next(error);
     }
   });
+  app.post(
+    "/api/admin/notifications/announcements",
+    auth.require,
+    auth.sameOrigin,
+    async (req, res, next) => {
+      try {
+        res.status(202).json(await calendarWatch.announce(req.body));
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   app.delete(
     "/api/admin/notifications/devices/:id",
     auth.require,

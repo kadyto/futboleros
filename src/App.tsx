@@ -288,7 +288,10 @@ export default function App() {
   );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [calendarFilter, setCalendarFilter] = useState("upcoming");
+  const [calendarFilter, setCalendarFilter] = useState(() => {
+    const filter = new URLSearchParams(window.location.search).get("filter");
+    return filter === "played" || filter === "all" ? filter : "upcoming";
+  });
   const [mobileMenu, setMobileMenu] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   useStatistics(view, Boolean(data?.team));
@@ -462,8 +465,8 @@ export default function App() {
               <NotificationCenter
                 key={team.id}
                 teamId={team.id}
-                onCalendar={() => {
-                  setCalendarFilter("all");
+                onCalendar={(filter = "all") => {
+                  setCalendarFilter(filter);
                   navigate("calendar");
                 }}
               />

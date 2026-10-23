@@ -51,6 +51,46 @@ const initial = (teamId = null) => ({
   lastError: null,
   lastPushError: null,
 });
+const failure = (message, status = 400) =>
+  Object.assign(new Error(message), { status });
+
+function announcementInput(input) {
+  if (
+    !input ||
+    typeof input.id !== "string" ||
+    typeof input.teamId !== "string" ||
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+      input.id || "",
+    ) ||
+    !/^\d{1,12}$/.test(input.teamId || "") ||
+    Object.keys(input).some(
+      (key) => !["id", "teamId", "title", "body"].includes(key),
+    )
+  )
+    throw failure("El aviso no es válido. Revisa el formulario.");
+  if (typeof input.title !== "string" || typeof input.body !== "string")
+    throw failure("Escribe el título y el mensaje del aviso.");
+  const title = input.title.replace(/\s+/g, " ").trim();
+  const body = input.body.replace(/\r\n?/g, "\n").trim();
+  if (
+    !title ||
+    title.length > 80 ||
+    !body ||
+    body.length > 500 ||
+    /[\x00-\x08\x0b-\x1f\x7f]/.test(title + body)
+  )
+    throw failure(
+      "El título admite entre 1 y 80 caracteres y el mensaje entre 1 y 500, sin caracteres de control.",
+    );
+  return { id: input.id, teamId: input.teamId, title, body };
+}
+
+function keepAnnouncements(state) {
+  return {
+    events: state.events.filter((event) => event.type === "announcement"),
+    outbox: state.outbox.filter((job) => job.kind === "announcement"),
+  };
+}
 
 function display(field, value) {
   if (!value) return "Por confirmar";
@@ -216,11 +256,103 @@ export class CalendarWatch {
       const now = this.clock();
       await this.store.write({
         ...initial(snapshot.team.id),
+        ...(state.teamId === snapshot.team.id ? keepAnnouncements(state) : {}),
         season: snapshot.team.season,
         baseline,
         lastCheckedAt: new Date(now).toISOString(),
         nextCheckAt: new Date(now + CHECK_INTERVAL).toISOString(),
       });
+    });
+  }
+  announce(input) {
+    const message = announcementInput(input);
+    const task = this.run(async () => {
+      const config = await this.settings.read();
+      if (!config.team)
+        throw failure("Todavía no hay un equipo configurado.", 409);
+      if (config.team.id !== message.teamId)
+        throw failure(
+          "Ha cambiado el equipo configurado. Recarga el panel antes de enviar el aviso.",
+          409,
+        );
+      let state = await this.read();
+      if (state.teamId !== config.team.id) state = initial(config.team.id);
+      const previous = state.events.find((event) => event.id === message.id);
+      if (previous) {
+        if (
+          previous.type !== "announcement" ||
+          previous.title !== message.title ||
+          previous.body !== message.body
+        )
+          throw failure(
+            "El identificador ya corresponde a otro aviso. Crea un aviso nuevo.",
+            409,
+          );
+        return {
+          id: message.id,
+          recipients: previous.recipientCount,
+          duplicate: true,
+        };
+      }
+      if (state.outbox.length >= 100)
+        throw failure(
+          "Hay demasiados avisos pendientes. Espera a que se entreguen antes de enviar otro.",
+          503,
+        );
+      const targets = (await this.push.list()).map((sub) => sub.id);
+      const now = this.clock();
+      const createdAt = new Date(now).toISOString();
+      if ((await this.settings.read()).team?.id !== config.team.id)
+        throw failure(
+          "Ha cambiado el equipo configurado. Recarga el panel antes de enviar el aviso.",
+          409,
+        );
+      const event = {
+        id: message.id,
+        title: message.title,
+        body: message.body,
+        type: "announcement",
+        createdAt,
+        recipientCount: targets.length,
+      };
+      state.events = [event, ...state.events]
+        .filter(
+          (item) => now - Date.parse(item.createdAt) <= 90 * CHECK_INTERVAL,
+        )
+        .slice(0, 100);
+      if (targets.length)
+        state.outbox.push({
+          id: message.id,
+          teamId: config.team.id,
+          kind: "announcement",
+          createdAt,
+          nextAttemptAt: now,
+          targets,
+          payload: {
+            title: message.title,
+            body: message.body,
+            tag: `announcement-${message.id}`,
+            url: "/?view=calendar&filter=played",
+          },
+        });
+      await this.store.write(state);
+      return { id: message.id, recipients: targets.length, duplicate: false };
+    });
+    void task
+      .then(
+        () => this.sendPending(),
+        () => {},
+      )
+      .catch(() =>
+        console.warn("No se ha podido procesar el envío de un aviso manual."),
+      );
+    return task;
+  }
+  sendPending() {
+    return this.run(async () => {
+      const config = await this.settings.read();
+      const state = await this.read();
+      if (state.teamId === config.team?.id) await this.deliver(state);
     });
   }
   check({ force = false } = {}) {
@@ -257,8 +389,7 @@ export class CalendarWatch {
           ? (await this.push.list()).map((sub) => sub.id)
           : [];
         if (freshReference) {
-          state.events = [];
-          state.outbox = [];
+          Object.assign(state, keepAnnouncements(state));
         }
         state.baseline = compared.baseline;
         state.season = snapshot.team.season;
@@ -339,10 +470,22 @@ export class CalendarWatch {
   }
   publicState(state) {
     return {
-      events: state.events.filter(
-        (event) =>
-          this.clock() - Date.parse(event.createdAt) <= 90 * CHECK_INTERVAL,
-      ),
+      events: state.events
+        .filter(
+          (event) =>
+            this.clock() - Date.parse(event.createdAt) <= 90 * CHECK_INTERVAL,
+        )
+        .map((event) =>
+          event.type === "announcement"
+            ? {
+                id: event.id,
+                type: event.type,
+                createdAt: event.createdAt,
+                title: event.title,
+                body: event.body,
+              }
+            : event,
+        ),
       lastCheckedAt: state.lastCheckedAt,
       nextCheckAt: state.nextCheckAt,
       lastError: state.lastError,

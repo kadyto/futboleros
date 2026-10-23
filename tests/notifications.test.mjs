@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createECDH, randomBytes } from "node:crypto";
+import { createECDH, randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -608,4 +608,187 @@ test("shows only safe device details to administrators, upgrades legacy subscrip
     saved,
     /Mozilla|userAgent|8\.8\.8\.8|spoofed-client-metadata/,
   );
+});
+
+test("publishes a manual result without fetching the federation, deduplicates retries and preserves its delivery through a baseline refresh and restart", async (t) => {
+  const { dir, state, settings, push, watcher, load, options } =
+    await harness(t);
+  await push.subscribe(subscription());
+  state.failPush = true;
+  const message = {
+    id: randomUUID(),
+    teamId: "1001",
+    title: "Resultado del partido",
+    body: "Final: Local 3–2 Visitante. ¡Buen partido!",
+  };
+  const receipts = await Promise.all([
+    watcher.announce(message),
+    watcher.announce(message),
+  ]);
+  await watcher.sendPending();
+  assert.equal(state.loads, 0);
+  assert.equal(receipts[0].recipients, 1);
+  assert.equal(receipts[1].duplicate, true);
+  assert.equal((await watcher.feed()).events.length, 1);
+  assert.equal((await watcher.status()).pendingDeliveries, 1);
+  assert.equal((await watcher.feed()).nextCheckAt, null);
+  await watcher.check();
+  assert.equal(state.loads, 1);
+  assert.equal((await watcher.feed()).events.length, 1);
+  assert.equal((await watcher.status()).pendingDeliveries, 1);
+  const scheduled = (await watcher.feed()).nextCheckAt;
+  await push.subscribe(subscription("new-device"));
+  state.now += 5 * 60_000;
+  state.failPush = false;
+  const restored = new CalendarWatch({
+    directory: dir,
+    settings,
+    load,
+    push: new PushService(options),
+    clock: () => state.now,
+  });
+  await restored.sendPending();
+  assert.equal(state.sent.length, 1);
+  assert.equal(state.loads, 1);
+  assert.equal(state.sent[0].payload.title, message.title);
+  assert.equal(state.sent[0].payload.body, message.body);
+  assert.equal(state.sent[0].payload.tag, `announcement-${message.id}`);
+  assert.equal(state.sent[0].payload.url, "/?view=calendar&filter=played");
+  assert.equal((await restored.status()).pendingDeliveries, 0);
+  assert.equal((await restored.feed()).nextCheckAt, scheduled);
+  assert.doesNotMatch(
+    JSON.stringify(await restored.feed()),
+    /recipientCount|targets|endpoint|outbox/,
+  );
+  const duplicate = await restored.announce(message);
+  await restored.sendPending();
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.recipients, 1);
+  assert.equal(state.sent.length, 1);
+  await assert.rejects(
+    async () => restored.announce({ ...message, body: "Un mensaje diferente" }),
+    { status: 409 },
+  );
+  state.source.team.season = "2027/2028";
+  await restored.setup(state.source);
+  assert.equal((await restored.feed()).events.length, 1);
+  await settings.save({ ...state.source.team, id: "1002" });
+  assert.deepEqual((await restored.feed()).events, []);
+  await assert.rejects(
+    async () => restored.announce({ ...message, id: randomUUID() }),
+    { status: 409 },
+  );
+  await restored.sendPending();
+});
+
+test("validates manual content, supports public notices without subscribers and retains queued broadcasts while the federation is unavailable", async (t) => {
+  const { state, watcher, push } = await harness(t);
+  const message = {
+    id: randomUUID(),
+    teamId: "1001",
+    title: "Resultado",
+    body: "Local 3–2 Visitante",
+  };
+  for (const invalid of [
+    null,
+    {},
+    { ...message, id: "bad" },
+    { ...message, title: " " },
+    { ...message, title: "x".repeat(81) },
+    { ...message, body: "" },
+    { ...message, body: "x".repeat(501) },
+    { ...message, body: "bad\u0000text" },
+    { ...message, url: "https://foreign.invalid" },
+  ]) {
+    await assert.rejects(async () => watcher.announce(invalid), {
+      status: 400,
+    });
+  }
+  assert.equal((await watcher.feed()).events.length, 0);
+  const receipt = await watcher.announce(message);
+  await watcher.sendPending();
+  assert.equal(receipt.recipients, 0);
+  assert.equal((await watcher.feed()).events[0].body, message.body);
+  await push.subscribe(subscription());
+  state.source = new Error("Federation unavailable");
+  await watcher.announce({
+    ...message,
+    id: randomUUID(),
+    title: "¡Final!",
+    body: "Equipo local 2–1 Equipo visitante ⚽",
+  });
+  await watcher.sendPending();
+  assert.equal(state.loads, 0);
+  assert.equal(state.sent.length, 1);
+  await watcher.check();
+  assert.ok((await watcher.feed()).lastError);
+  assert.equal((await watcher.feed()).events.length, 2);
+  assert.equal(state.sent.length, 1);
+});
+
+test("requires an authenticated same-origin administrator to broadcast and accepts a retried request only once", async (t) => {
+  const dir = await directory(t);
+  const sent = [];
+  const push = new PushService({
+    directory: dir,
+    send: async (_sub, payload) => sent.push(payload),
+  });
+  const { url } = await startTestApp(t, { directory: dir, pushService: push });
+  const route = "/api/admin/notifications/announcements";
+  const body = {
+    id: randomUUID(),
+    teamId: "1001",
+    title: "Resultado",
+    body: "Local 3–2 Visitante",
+  };
+  const post = (extra = {}) =>
+    request(url, route, { method: "POST", body, ...extra });
+  assert.equal((await post()).status, 401);
+  const cookie = await signIn(url);
+  assert.equal((await post({ cookie })).status, 409);
+  await request(url, "/api/admin/config", {
+    method: "PUT",
+    cookie,
+    body: { teamId: "1001" },
+  });
+  await push.subscribe(subscription());
+  assert.equal(
+    (await post({ cookie, headers: { Origin: "https://foreign.invalid" } }))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await post({ cookie, headers: { "Sec-Fetch-Site": "cross-site" } }))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await post({ cookie, headers: { "X-Futboleros-Admin": "" } })).status,
+    403,
+  );
+  assert.equal(
+    (await post({ cookie, body: { ...body, title: "" } })).status,
+    400,
+  );
+  assert.equal(
+    (await post({ cookie, body: { ...body, teamId: "1002" } })).status,
+    409,
+  );
+  const first = await post({ cookie });
+  assert.equal(first.status, 202);
+  assert.equal((await first.json()).recipients, 1);
+  const again = await post({ cookie });
+  assert.equal(again.status, 202);
+  assert.equal((await again.json()).duplicate, true);
+  assert.equal(sent.length, 1);
+  const feed = await (await request(url, "/api/notifications")).json();
+  assert.deepEqual(feed.events, [
+    {
+      id: body.id,
+      createdAt: feed.events[0].createdAt,
+      type: "announcement",
+      title: body.title,
+      body: body.body,
+    },
+  ]);
 });

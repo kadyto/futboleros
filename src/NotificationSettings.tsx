@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { noticeDate, type NotificationFeed } from "./NotificationCenter";
+import ManualNotification from "./ManualNotification";
 
 type SubscribedDevice = {
   id: string;
@@ -38,8 +39,10 @@ type Status = NotificationFeed & {
   checking: boolean;
 };
 export default function NotificationSettings({
+  teamId,
   teamVersion,
 }: {
+  teamId: string;
   teamVersion: string;
 }) {
   const [status, setStatus] = useState<Status | null>(null);
@@ -163,6 +166,17 @@ export default function NotificationSettings({
           )}
           Comprobar calendario ahora
         </button>
+        <ManualNotification
+          key={teamVersion}
+          teamId={teamId}
+          recipients={status?.subscriptions || 0}
+          announcements={
+            status?.events.filter((event) => event.type === "announcement") ||
+            []
+          }
+          disabled={busy || !status}
+          onPublished={() => void update("refresh")}
+        />
         <section
           className="notification-devices"
           aria-labelledby="notification-devices-title"

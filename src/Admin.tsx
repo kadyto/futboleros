@@ -534,6 +534,7 @@ export default function Admin() {
               {config.team && (
                 <>
                   <NotificationSettings
+                    teamId={config.team.id}
                     teamVersion={`${config.team.id}:${config.updatedAt}`}
                   />
                   <WeatherSettings

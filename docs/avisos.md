@@ -4,7 +4,7 @@
 
 El proceso principal del servidor revisa el calendario del equipo publicado cada 24 horas, aunque no haya visitantes ni navegadores abiertos. El contenedor debe permanecer encendido y tener conexión HTTPS con la federación. No hace falta instalar cron ni otro contenedor.
 
-La primera revisión establece una referencia y no anuncia todos los partidos como novedades. Al cambiar de equipo o de temporada se crea una nueva referencia sin avisos antiguos. Las suscripciones siguen a la web y al equipo que publique su administración.
+La primera revisión establece una referencia y no anuncia todos los partidos como novedades. Al cambiar de equipo o de temporada se crea una nueva referencia sin anuncios automáticos antiguos. Los avisos manuales del mismo equipo se conservan al actualizar la referencia de temporada. Al cambiar de equipo se limpia su historial y se dejan de enviar sus avisos pendientes. Las suscripciones siguen a la web y al equipo que publique su administración.
 
 Se comparan fecha, hora, campo, jornada, equipos y aplazamientos o reanudaciones de partidos pendientes; también se avisa de nuevos partidos publicados. Los resultados de partidos jugados no se consideran cambios de calendario. Los cambios se guardan en la campana con el valor anterior y el nuevo. Se conservan como máximo 100 avisos de los últimos 90 días.
 
@@ -17,6 +17,22 @@ En Administración → Configuración → **Avisos de cambios en partidos** se m
 La sección **Dispositivos que reciben avisos** muestra una tarjeta por suscripción: tipo de dispositivo, sistema, navegador y modelo cuando el encabezado normal lo comunica, referencia abreviada, fecha de alta y última sincronización. Esta última fecha refleja la apertura de la web o la activación de los avisos, no la conexión actual ni la entrega de una notificación. No identifica al propietario. **Actualizar lista** consulta el estado sin revisar de nuevo el calendario.
 
 **Dar de baja** pide confirmar y elimina la suscripción del servidor. Volver a abrir la página no la reactiva automáticamente; el visitante puede volver a activarla expresamente desde la campana. Las suscripciones anteriores siguen funcionando: sus detalles aparecerán cuando vuelvan a abrir la web. Solo la administración puede ver esta lista, que no incluye direcciones push ni claves.
+
+## Envío manual
+
+En Administración → Configuración → Avisos de cambios en partidos → **Enviar una notificación**:
+
+1. Escribe un título de hasta 80 caracteres y un mensaje de hasta 500. Puedes incluir un resultado aunque la federación todavía no lo haya publicado.
+2. Pulsa **Ver vista previa** y revisa el contenido y el número de dispositivos suscritos. **Volver a editar** permite corregirlo antes del envío.
+3. Pulsa **Confirmar y enviar aviso**. El mensaje se publica en la campana y se prepara el envío a los dispositivos suscritos en ese momento. Si no hay ninguno, sigue apareciendo en la campana.
+
+Al pulsar el aviso se abre la sección **Resultados** del calendario. **Últimos avisos manuales** muestra los cinco anuncios más recientes en administración. El historial conjunto de la campana se limita a 100 avisos de los últimos 90 días.
+
+El envío manual no consulta la federación, no espera a la siguiente revisión diaria ni cambia su fecha. La aplicación conserva el contenido y los destinatarios antes de enviar y utiliza la misma cola persistente, reintentos y plazo de 24 horas que los avisos automáticos. Los dispositivos que se suscriban después no reciben anuncios anteriores. Una baja impide nuevos intentos a ese dispositivo; una entrega que ya haya aceptado el proveedor puede seguir llegando.
+
+Si falla la conexión del panel tras confirmar, se puede reintentar el mismo envío: mientras el aviso siga en el historial, su identificador impide crear otra publicación o volver a enviar a quienes ya lo recibieron. Crear otro formulario y confirmarlo publica un aviso nuevo. La confirmación indica que el envío se ha programado; no acredita que una persona lo haya visto. Los permisos del sistema y las restricciones del navegador siguen condicionando la entrega.
+
+El texto se envía como texto plano, el enlace permanece dentro de esta web y solo una sesión de administración puede publicar. Un anuncio manual no modifica los resultados de la federación ni los marcadores mostrados en el calendario.
 
 ## Activar en cada dispositivo
 

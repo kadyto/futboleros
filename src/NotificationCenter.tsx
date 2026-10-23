@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff, ExternalLink, LoaderCircle, X } from "lucide-react";
 
-type Event = {
+type CalendarEvent = {
   id: string;
   createdAt: string;
   type: "changed" | "added";
@@ -13,8 +13,15 @@ type Event = {
   };
   changes: { field: string; label: string; before: string; after: string }[];
 };
+export type Announcement = {
+  id: string;
+  createdAt: string;
+  type: "announcement";
+  title: string;
+  body: string;
+};
 export type NotificationFeed = {
-  events: Event[];
+  events: (CalendarEvent | Announcement)[];
   lastCheckedAt: string | null;
   nextCheckAt: string | null;
   lastError: string | null;
@@ -61,7 +68,7 @@ export default function NotificationCenter({
   onCalendar,
 }: {
   teamId: string;
-  onCalendar: () => void;
+  onCalendar: (filter?: "all" | "played") => void;
 }) {
   const [open, setOpen] = useState(false);
   const [feed, setFeed] = useState<NotificationFeed | null>(null);
@@ -268,7 +275,8 @@ export default function NotificationCenter({
           <div className="notification-content">
             <p>
               Revisamos el calendario cada 24 horas. Aquí verás los cambios de
-              fecha, hora, campo y estado, además de nuevos partidos publicados.
+              fecha, hora, campo y estado, además de nuevos partidos publicados
+              y los avisos de la administración.
             </p>
             <section
               className="notification-preferences"
@@ -377,9 +385,20 @@ export default function NotificationCenter({
                       {noticeDate(event.createdAt)}
                     </time>
                     <h3>
-                      {event.match.home} — {event.match.away}
+                      {event.type === "announcement"
+                        ? event.title
+                        : `${event.match.home} — ${event.match.away}`}
                     </h3>
-                    {event.type === "added" ? (
+                    {event.type === "announcement" ? (
+                      <>
+                        <small className="notification-announcement-label">
+                          Aviso de la administración
+                        </small>
+                        <p className="notification-announcement-body">
+                          {event.body}
+                        </p>
+                      </>
+                    ) : event.type === "added" ? (
                       <p>Nuevo partido publicado.</p>
                     ) : (
                       event.changes.map((change) => (
@@ -392,11 +411,15 @@ export default function NotificationCenter({
                     <button
                       className="notification-calendar"
                       onClick={() => {
-                        onCalendar();
+                        onCalendar(
+                          event.type === "announcement" ? "played" : "all",
+                        );
                         setOpen(false);
                       }}
                     >
-                      Ver calendario
+                      {event.type === "announcement"
+                        ? "Ver resultados"
+                        : "Ver calendario"}
                     </button>
                   </article>
                 ))}

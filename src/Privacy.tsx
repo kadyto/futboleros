@@ -69,6 +69,12 @@ export default function Privacy() {
           </p>
           <h2>Avisos de cambios en partidos</h2>
           <p>
+            Los avisos incluyen cambios del calendario y mensajes publicados
+            manualmente por la administración, como el resultado de un partido.
+            Estos mensajes aparecen en la campana pública y se envían a los
+            dispositivos suscritos en el momento de publicarlos.
+          </p>
+          <p>
             Las notificaciones son opcionales y se activan en cada dispositivo
             mediante el permiso del navegador. Para enviarlas, el servidor
             conserva la dirección de suscripción del servicio push del navegador

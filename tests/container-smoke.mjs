@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:8093";
 const headers = {
   "Content-Type": "application/json",
@@ -49,8 +50,29 @@ assert.equal(
   24 * 60 * 60_000,
 );
 assert.equal(notices.pendingDeliveries, 0);
+if (process.argv[2] !== "restored") {
+  const manual = await fetch(base + "/api/admin/notifications/announcements", {
+    method: "POST",
+    headers: { ...headers, Cookie: cookie },
+    body: JSON.stringify({
+      id: randomUUID(),
+      teamId: "1001",
+      title: "Resultado del partido",
+      body: "Local 3–2 Visitante",
+    }),
+  });
+  assert.equal(manual.status, 202);
+  assert.equal((await manual.json()).recipients, 0);
+}
 const publicNotices = await (await fetch(base + "/api/notifications")).json();
-assert.deepEqual(publicNotices.events, []);
+assert.equal(publicNotices.events.length, 1);
+assert.equal(publicNotices.events[0].type, "announcement");
+assert.equal(publicNotices.events[0].title, "Resultado del partido");
+assert.equal(publicNotices.events[0].body, "Local 3–2 Visitante");
+assert.doesNotMatch(
+  JSON.stringify(publicNotices),
+  /recipientCount|targets|endpoint/,
+);
 const pushConfig = await (await fetch(base + "/api/push/config")).json();
 assert.deepEqual(Object.keys(pushConfig), ["publicKey"]);
 assert.equal(Buffer.from(pushConfig.publicKey, "base64url").length, 65);
@@ -88,6 +110,6 @@ assert.equal(
 );
 console.log(
   process.argv[2] === "restored"
-    ? "Container settings, public team and private statistics survived recreation."
+    ? "Container settings, public team, manual announcement and private statistics survived recreation."
     : "Container administrator save, local geolocation, private statistics and public restrictions verified.",
 );

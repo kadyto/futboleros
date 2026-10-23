@@ -264,6 +264,116 @@ const path = require("node:path");
       .getByRole("button", { name: "Avisos de partidos", exact: true })
       .click();
     await page
+      .getByRole("button", { name: "Cerrar avisos", exact: true })
+      .click();
+    await admin
+      .getByLabel("Título del aviso", { exact: false })
+      .fill("Resultado del partido");
+    await admin
+      .getByLabel("Mensaje del aviso", { exact: false })
+      .fill("Final: Local 3–2 Visitante. ¡Buen partido!");
+    await admin
+      .getByRole("button", { name: "Ver vista previa", exact: true })
+      .click();
+    const preview = admin.getByRole("region", {
+      name: "Vista previa de la notificación",
+    });
+    await preview
+      .getByRole("heading", { name: "Resultado del partido", exact: true })
+      .waitFor();
+    assert.equal(sent.length, 2);
+    await admin.locator(".manual-notification").scrollIntoViewIfNeeded();
+    await admin.screenshot({
+      path: "test-results/manual-notification-desktop.png",
+    });
+    for (const width of [320, 390, 768]) {
+      await admin.setViewportSize({ width, height: 844 });
+      await admin.waitForFunction(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      );
+    }
+    await admin.setViewportSize({ width: 390, height: 844 });
+    await preview.scrollIntoViewIfNeeded();
+    await admin.screenshot({
+      path: "test-results/manual-notification-mobile.png",
+    });
+    await admin
+      .getByRole("button", { name: "Volver a editar", exact: true })
+      .click();
+    assert.equal(sent.length, 2);
+    await admin
+      .getByLabel("Mensaje del aviso", { exact: false })
+      .fill(
+        "Final: Local 3–2 Visitante. ¡Buen partido!\nNos vemos en el próximo.",
+      );
+    await admin
+      .getByRole("button", { name: "Ver vista previa", exact: true })
+      .click();
+    await admin
+      .getByRole("button", { name: "Confirmar y enviar aviso", exact: true })
+      .click();
+    await admin
+      .getByRole("status")
+      .filter({
+        hasText: "Aviso publicado. Envío programado para 1 dispositivo.",
+      })
+      .waitFor();
+    await app.locals.calendarWatch.sendPending();
+    assert.equal(sent.length, 3);
+    assert.equal(sent[2].title, "Resultado del partido");
+    assert.equal(sent[2].url, "/?view=calendar&filter=played");
+    const manualLoaded = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/notifications") && response.ok(),
+    );
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await manualLoaded;
+    await page
+      .getByRole("button", {
+        name: "Avisos de partidos, 1 sin leer",
+        exact: true,
+      })
+      .click();
+    const manualEvent = page
+      .locator(".notification-list article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "Resultado del partido",
+          exact: true,
+        }),
+      });
+    await manualEvent
+      .getByText("Aviso de la administración", { exact: true })
+      .waitFor();
+    assert.equal(
+      await manualEvent
+        .locator(".notification-announcement-body")
+        .textContent(),
+      sent[2].body,
+    );
+    await manualEvent
+      .getByRole("button", { name: "Ver resultados", exact: true })
+      .click();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Resultados", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    await page.goto(base + "/?view=calendar&filter=played");
+    await page
+      .getByRole("heading", { name: "Calendario.", exact: true })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Resultados", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    await page
+      .getByRole("button", { name: "Avisos de partidos", exact: true })
+      .click();
+    await page
       .getByRole("button", { name: "Desactivar avisos", exact: true })
       .click();
     await page
@@ -286,7 +396,7 @@ const path = require("node:path");
     assert.equal(script, base + "/sw.js");
     await workerPage.close();
     console.log(
-      "Notification browser checks passed: opt-in without automatic prompts, activation, test delivery, unread markers, changed hours, calendar links, unsubscribe, private device list, confirmed admin removal without automatic reactivation, mobile layouts and real worker installation.",
+      "Notification browser checks passed: opt-in without automatic prompts, activation, test delivery, unread markers, changed hours, calendar links, unsubscribe, private device list, confirmed admin removal without automatic reactivation, manual announcement preview and delivery, result links, mobile layouts and real worker installation.",
     );
   } finally {
     await browser.close();
