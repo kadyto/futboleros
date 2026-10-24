@@ -142,6 +142,19 @@ export function createApp({
     },
   );
   app.post(
+    "/api/admin/notifications/results/check",
+    auth.require,
+    auth.sameOrigin,
+    async (_req, res, next) => {
+      try {
+        await calendarWatch.checkResults({ force: true });
+        res.json(await calendarWatch.status());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  app.post(
     "/api/admin/notifications/check",
     auth.require,
     auth.sameOrigin,

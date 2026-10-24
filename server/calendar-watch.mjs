@@ -457,26 +457,46 @@ export class CalendarWatch {
     await this.deliver(state);
     return this.publicState(state);
   }
-  checkResults() {
-    if (this.resultsPending) return this.resultsPending;
-    const task = this.run(() => this.performResults()).finally(() => {
+  checkResults({ force = false } = {}) {
+    if (this.resultsPending) {
+      if (!force || this.resultsPending.force) return this.resultsPending.task;
+      return this.resultsPending.task.then(() => this.checkResults({ force }));
+    }
+    const task = this.run(() => this.performResults(force)).finally(() => {
       this.resultsPending = null;
     });
-    this.resultsPending = task;
+    this.resultsPending = { task, force };
     return task;
   }
-  async performResults() {
-    if (!this.loadMatch) return;
-    const config = await this.settings.read();
-    if (!config.team) return;
-    const state = await this.read();
-    if (state.teamId !== config.team.id || state.results.matches === null)
+  async performResults(force) {
+    if (!this.loadMatch) {
+      if (force)
+        throw failure(
+          "La comprobación de resultados y actas no está disponible.",
+          503,
+        );
       return;
+    }
+    const config = await this.settings.read();
+    if (!config.team) {
+      if (force) throw failure("Todavía no hay un equipo configurado.", 409);
+      return;
+    }
+    const state = await this.read();
+    if (state.teamId !== config.team.id || state.results.matches === null) {
+      if (force)
+        throw failure(
+          "Comprueba primero el calendario del equipo para preparar la revisión de resultados y actas.",
+          409,
+        );
+      return;
+    }
     const now = this.clock();
     const results = state.results;
     if (
-      !resultHours(now) ||
-      (results.nextCheckAt && now < Date.parse(results.nextCheckAt))
+      !force &&
+      (!resultHours(now) ||
+        (results.nextCheckAt && now < Date.parse(results.nextCheckAt)))
     )
       return;
     let failed = false;

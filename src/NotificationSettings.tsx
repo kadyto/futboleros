@@ -68,30 +68,31 @@ export default function NotificationSettings({
       });
     return () => controller.abort();
   }, [teamVersion]);
-  async function update(action: "check" | "refresh" | "remove", id?: string) {
+  async function update(
+    action: "check" | "results" | "refresh" | "remove",
+    id?: string,
+  ) {
     setOperation(action);
     setError("");
     setMessage("");
     try {
       const path = "/api/admin/notifications";
+      const checking = action === "check" || action === "results";
       const response = await fetch(
         action === "check"
           ? `${path}/check`
-          : action === "remove"
-            ? `${path}/devices/${encodeURIComponent(id || "")}`
-            : path,
+          : action === "results"
+            ? `${path}/results/check`
+            : action === "remove"
+              ? `${path}/devices/${encodeURIComponent(id || "")}`
+              : path,
         {
-          method:
-            action === "check"
-              ? "POST"
-              : action === "remove"
-                ? "DELETE"
-                : "GET",
+          method: checking ? "POST" : action === "remove" ? "DELETE" : "GET",
           headers: {
             "Content-Type": "application/json",
             "X-Futboleros-Admin": "1",
           },
-          ...(action === "check" ? { body: "{}" } : {}),
+          ...(checking ? { body: "{}" } : {}),
         },
       );
       const value = await response.json();
@@ -102,7 +103,12 @@ export default function NotificationSettings({
         setMessage("Dispositivo dado de baja. Ya no recibirá nuevos avisos.");
       else if (action === "refresh")
         setMessage("Lista de dispositivos actualizada.");
-      else if (!value.lastError)
+      else if (action === "results") {
+        if (value.results && !value.results.lastError)
+          setMessage(
+            "Resultados y actas comprobados. Los avisos nuevos aparecen en la campana.",
+          );
+      } else if (!value.lastError)
         setMessage(
           "Calendario comprobado. Los cambios detectados aparecen en la campana de avisos.",
         );
@@ -170,18 +176,32 @@ export default function NotificationSettings({
             {message}
           </p>
         )}
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() => void update("check")}
-        >
-          {operation === "check" ? (
-            <LoaderCircle size={15} className="spin" />
-          ) : (
-            <RefreshCw size={15} />
-          )}
-          Comprobar calendario ahora
-        </button>
+        <div className="notification-actions">
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => void update("check")}
+          >
+            {operation === "check" ? (
+              <LoaderCircle size={15} className="spin" />
+            ) : (
+              <RefreshCw size={15} />
+            )}
+            Comprobar calendario ahora
+          </button>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => void update("results")}
+          >
+            {operation === "results" ? (
+              <LoaderCircle size={15} className="spin" />
+            ) : (
+              <RefreshCw size={15} />
+            )}
+            Comprobar resultados y actas ahora
+          </button>
+        </div>
         <ManualNotification
           key={teamVersion}
           teamId={teamId}

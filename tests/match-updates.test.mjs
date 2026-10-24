@@ -9,6 +9,7 @@ import { Federation, parseMatchUpdate } from "../server/provider.mjs";
 import { nextResultCheck, resultHours } from "../server/match-updates.mjs";
 import { SiteSettings } from "../server/settings.mjs";
 import { page } from "./fixtures.mjs";
+import { fakeProvider, request, signIn, startTestApp } from "./helpers.mjs";
 
 const match = (extra = {}) => ({
   id: "3001",
@@ -238,6 +239,188 @@ test("initial observations remain silent for already published results and repor
   await watcher.checkResults();
   assert.deepEqual((await watcher.feed()).events, []);
   assert.equal(state.sent.length, 0);
+});
+
+test("manual checks immediately retry failed results without moving daily/hourly slots or duplicating notices", async (t) => {
+  const { state, watcher, options } = await harness(t);
+  state.updates.set("3001", new Error("source unavailable"));
+  await watcher.checkResults();
+  const before = await watcher.feed();
+  assert.ok(before.results.lastError);
+  state.now += 5 * 60_000;
+  state.updates.set("3001", result());
+  await watcher.checkResults();
+  assert.equal(state.calls.length, 1);
+  await watcher.checkResults({ force: true });
+  const after = await watcher.feed();
+  assert.equal(state.calls.length, 2);
+  assert.equal(after.results.lastError, null);
+  assert.equal(after.results.lastCheckedAt, new Date(state.now).toISOString());
+  assert.equal(after.nextCheckAt, before.nextCheckAt);
+  assert.equal(after.results.nextCheckAt, before.results.nextCheckAt);
+  assert.deepEqual(
+    after.events.map((event) => event.type),
+    ["result"],
+  );
+  const restored = new CalendarWatch(options);
+  await restored.checkResults({ force: true });
+  assert.equal((await restored.feed()).events.length, 1);
+  assert.equal(state.sent.length, 1);
+});
+
+test("manual checks also work overnight while automated checks continue to wait for 08:00 Madrid", async (t) => {
+  const { state, watcher } = await harness(t);
+  const daily = (await watcher.feed()).nextCheckAt;
+  state.now = Date.parse("2026-10-24T22:30:00Z");
+  state.updates.set("3001", result());
+  await watcher.checkResults();
+  assert.equal(state.calls.length, 0);
+  await watcher.checkResults({ force: true });
+  const feed = await watcher.feed();
+  assert.equal(state.calls.length, 1);
+  assert.equal(feed.results.nextCheckAt, "2026-10-25T07:00:00.000Z");
+  assert.equal(feed.nextCheckAt, daily);
+  await watcher.checkResults();
+  assert.equal(state.calls.length, 1);
+});
+
+test(
+  "a manual request following an in-flight automatic check performs one fresh coalesced check",
+  { timeout: 5000 },
+  async (t) => {
+    const { state, watcher } = await harness(t);
+    let started;
+    let release;
+    const firstStarted = new Promise((resolve) => {
+      started = resolve;
+    });
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    watcher.loadMatch = async () => {
+      calls++;
+      if (calls === 1) {
+        started();
+        await gate;
+        return pending();
+      }
+      return result();
+    };
+    const automatic = watcher.checkResults();
+    await firstStarted;
+    const manual = watcher.checkResults({ force: true });
+    const secondManual = watcher.checkResults({ force: true });
+    release();
+    await Promise.all([automatic, manual, secondManual]);
+    assert.equal(calls, 2);
+    assert.deepEqual(
+      (await watcher.feed()).events.map((event) => event.type),
+      ["result"],
+    );
+    assert.equal(state.sent.length, 1);
+  },
+);
+
+test("the manual results API requires an authenticated same-origin admin and exposes failure/recovery separately", async (t) => {
+  const now = Date.parse("2026-10-24T06:00:00Z");
+  let calls = 0;
+  let unavailable = true;
+  const provider = fakeProvider();
+  const source = await provider.snapshot("1001");
+  source.matches = [match()];
+  const { url, directory } = await startTestApp(t, {
+    clock: () => now,
+    provider: {
+      ...provider,
+      snapshot: async () => structuredClone(source),
+      matchUpdate: async () => {
+        calls++;
+        if (unavailable) throw new Error("source unavailable");
+        return result();
+      },
+    },
+  });
+  const route = "/api/admin/notifications/results/check";
+  assert.equal(
+    (await request(url, route, { method: "POST", body: {} })).status,
+    401,
+  );
+  const cookie = await signIn(url);
+  const unconfigured = await request(url, route, {
+    method: "POST",
+    cookie,
+    body: {},
+  });
+  assert.equal(unconfigured.status, 409);
+  assert.match((await unconfigured.json()).error, /equipo configurado/);
+  assert.equal(
+    (
+      await request(url, "/api/admin/config", {
+        method: "PUT",
+        cookie,
+        body: { teamId: "1001" },
+      })
+    ).status,
+    200,
+  );
+  for (const headers of [
+    { "X-Futboleros-Admin": "" },
+    { Origin: "https://other.invalid" },
+    { "Sec-Fetch-Site": "cross-site" },
+  ])
+    assert.equal(
+      (await request(url, route, { method: "POST", cookie, headers, body: {} }))
+        .status,
+      403,
+    );
+  assert.equal(calls, 0);
+  const first = await request(url, route, { method: "POST", cookie, body: {} });
+  assert.equal(first.status, 200);
+  const before = await first.json();
+  assert.ok(before.results.lastError);
+  assert.equal(calls, 1);
+  unavailable = false;
+  const response = await request(url, route, {
+    method: "POST",
+    cookie,
+    body: {},
+  });
+  assert.equal(response.status, 200);
+  const status = await response.json();
+  assert.equal(calls, 2);
+  assert.equal(status.results.lastError, null);
+  assert.equal(status.nextCheckAt, before.nextCheckAt);
+  assert.equal(status.results.nextCheckAt, before.results.nextCheckAt);
+  assert.deepEqual(
+    status.events.map((event) => event.type),
+    ["result"],
+  );
+  unavailable = true;
+  const failed = await request(url, route, {
+    method: "POST",
+    cookie,
+    body: {},
+  });
+  assert.equal(failed.status, 200);
+  assert.ok((await failed.json()).results.lastError);
+  assert.equal(calls, 3);
+  await rm(path.join(directory, "calendar-watch.json"));
+  const noReference = await request(url, route, {
+    method: "POST",
+    cookie,
+    body: {},
+  });
+  assert.equal(noReference.status, 409);
+  assert.match(
+    (await noReference.json()).error,
+    /Comprueba primero el calendario/,
+  );
+  assert.equal(
+    calls,
+    3,
+    "a missing reference must report an error without querying the source",
+  );
 });
 
 test("keeps the same observation when the report ID or fixture round changes", async (t) => {
