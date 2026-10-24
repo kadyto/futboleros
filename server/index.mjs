@@ -47,6 +47,7 @@ export function createApp({
     push,
     clock,
     load: (id) => cache.get(id, { force: true }),
+    loadMatch: (match, teamId) => federation.matchUpdate(match, teamId),
   });
   const stats = statistics || new Statistics({ directory, clock });
   const ipLocation = visitorLocation || new VisitorLocation();

@@ -1,6 +1,15 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { JsonFile } from "./json-file.mjs";
+import {
+  initialResults,
+  matchPayload,
+  nextResultCheck,
+  observeMatch,
+  pendingMatches,
+  resultHours,
+  trackMatches,
+} from "./match-updates.mjs";
 
 export const CHECK_INTERVAL = 24 * 60 * 60_000;
 const RETRY_INTERVAL = 15 * 60_000;
@@ -50,6 +59,7 @@ const initial = (teamId = null) => ({
   nextCheckAt: null,
   lastError: null,
   lastPushError: null,
+  results: initialResults(),
 });
 const failure = (message, status = 400) =>
   Object.assign(new Error(message), { status });
@@ -200,13 +210,21 @@ export function notificationPayload(events, id) {
 }
 
 export class CalendarWatch {
-  constructor({ directory, settings, load, push, clock = () => Date.now() }) {
+  constructor({
+    directory,
+    settings,
+    load,
+    loadMatch,
+    push,
+    clock = () => Date.now(),
+  }) {
     this.store = new JsonFile(
       path.join(directory, "calendar-watch.json"),
       initial(),
     );
     this.settings = settings;
     this.load = load;
+    this.loadMatch = loadMatch;
     this.push = push;
     this.clock = clock;
     this.queue = Promise.resolve();
@@ -224,6 +242,7 @@ export class CalendarWatch {
       !Array.isArray(state.outbox)
     )
       throw new Error("El estado del calendario no es válido.");
+    state.results ||= initialResults();
     return state;
   }
   snapshot(snapshot) {
@@ -250,8 +269,13 @@ export class CalendarWatch {
         state.teamId === snapshot.team.id &&
         state.season === snapshot.team.season &&
         state.baseline !== null
-      )
+      ) {
+        if (state.results.matches === null) {
+          trackMatches(state.results, snapshot, this.clock());
+          await this.store.write(state);
+        }
         return;
+      }
       const baseline = this.snapshot(snapshot);
       const now = this.clock();
       await this.store.write({
@@ -261,6 +285,7 @@ export class CalendarWatch {
         baseline,
         lastCheckedAt: new Date(now).toISOString(),
         nextCheckAt: new Date(now + CHECK_INTERVAL).toISOString(),
+        results: trackMatches(initialResults(), snapshot, now),
       });
     });
   }
@@ -372,7 +397,12 @@ export class CalendarWatch {
     const now = this.clock();
     let state = await this.read();
     if (state.teamId !== config.team.id) state = initial(config.team.id);
-    if (force || !state.nextCheckAt || now >= Date.parse(state.nextCheckAt)) {
+    if (
+      force ||
+      !state.nextCheckAt ||
+      now >= Date.parse(state.nextCheckAt) ||
+      (this.loadMatch && state.results.matches === null)
+    ) {
       state.lastAttemptAt = new Date(now).toISOString();
       try {
         const snapshot = await this.load(config.team.id);
@@ -390,7 +420,9 @@ export class CalendarWatch {
           : [];
         if (freshReference) {
           Object.assign(state, keepAnnouncements(state));
+          state.results = initialResults();
         }
+        trackMatches(state.results, snapshot, now);
         state.baseline = compared.baseline;
         state.season = snapshot.team.season;
         state.events = [...compared.events, ...state.events]
@@ -422,6 +454,75 @@ export class CalendarWatch {
       // Persist the baseline, history and pending deliveries together before sending.
       await this.store.write(state);
     }
+    await this.deliver(state);
+    return this.publicState(state);
+  }
+  checkResults() {
+    if (this.resultsPending) return this.resultsPending;
+    const task = this.run(() => this.performResults()).finally(() => {
+      this.resultsPending = null;
+    });
+    this.resultsPending = task;
+    return task;
+  }
+  async performResults() {
+    if (!this.loadMatch) return;
+    const config = await this.settings.read();
+    if (!config.team) return;
+    const state = await this.read();
+    if (state.teamId !== config.team.id || state.results.matches === null)
+      return;
+    const now = this.clock();
+    const results = state.results;
+    if (
+      !resultHours(now) ||
+      (results.nextCheckAt && now < Date.parse(results.nextCheckAt))
+    )
+      return;
+    let failed = false;
+    const events = [];
+    for (const entry of pendingMatches(results, config.team.id, now)) {
+      try {
+        const update = await this.loadMatch(entry.match, config.team.id);
+        events.push(
+          ...observeMatch(entry, update, {
+            teamId: state.teamId,
+            season: state.season,
+            now,
+          }),
+        );
+      } catch {
+        failed = true;
+      }
+    }
+    if ((await this.settings.read()).team?.id !== config.team.id) return;
+    const targets = events.length
+      ? (await this.push.list()).map((sub) => sub.id)
+      : [];
+    state.events = [...events, ...state.events]
+      .filter(
+        (event) => now - Date.parse(event.createdAt) <= 90 * CHECK_INTERVAL,
+      )
+      .slice(0, 100);
+    for (const event of events) {
+      if (targets.length)
+        state.outbox.push({
+          id: event.id,
+          teamId: state.teamId,
+          kind: event.type,
+          createdAt: event.createdAt,
+          nextAttemptAt: now,
+          targets: [...targets],
+          payload: matchPayload(event),
+        });
+    }
+    results.nextCheckAt = nextResultCheck(now);
+    if (!failed) results.lastCheckedAt = new Date(now).toISOString();
+    results.lastError = failed
+      ? "No se han podido comprobar todos los resultados y actas. Se reintentará en la próxima revisión horaria."
+      : null;
+    // Observations, stable event IDs and the outbox commit together, before delivery.
+    await this.store.write(state);
     await this.deliver(state);
     return this.publicState(state);
   }
@@ -489,6 +590,11 @@ export class CalendarWatch {
       lastCheckedAt: state.lastCheckedAt,
       nextCheckAt: state.nextCheckAt,
       lastError: state.lastError,
+      results: {
+        lastCheckedAt: state.results.lastCheckedAt,
+        nextCheckAt: state.results.nextCheckAt,
+        lastError: state.results.lastError,
+      },
     };
   }
   async feed() {
@@ -516,15 +622,20 @@ export class CalendarWatch {
           sum + job.targets.filter((id) => subscribed.has(id)).length,
         0,
       ),
-      checking: Boolean(this.pending),
+      checking: Boolean(this.pending || this.resultsPending),
     };
   }
   start({ interval = 60_000 } = {}) {
     if (this.timer) return;
+    this.stopped = false;
     const tick = () => {
-      void this.check().catch(() =>
-        console.warn("No se ha podido revisar el calendario automático."),
-      );
+      void this.check()
+        .then(() => {
+          if (!this.stopped) return this.checkResults();
+        })
+        .catch(() =>
+          console.warn("No se ha podido revisar el calendario automático."),
+        );
     };
     this.timer = setInterval(tick, interval);
     this.timer.unref();
@@ -532,6 +643,7 @@ export class CalendarWatch {
     this.first.unref();
   }
   stop() {
+    this.stopped = true;
     clearInterval(this.timer);
     clearTimeout(this.first);
     this.timer = null;

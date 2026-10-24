@@ -150,6 +150,32 @@ export function parseMatches(raw, teamId) {
   return matches;
 }
 
+export function parseMatchUpdate(game, match, teamId) {
+  if (
+    !game ||
+    String(game.codacta) !== String(match.id) ||
+    String(game.codigo_equipo_local) !== match.homeId ||
+    String(game.codigo_equipo_visitante) !== match.awayId ||
+    ![match.homeId, match.awayId].includes(teamId) ||
+    game.estado !== "1" ||
+    game.sesion_ok !== "1"
+  )
+    throw new SourceError(
+      "La ficha recibida no corresponde al partido esperado.",
+    );
+  // A 200 response or a preassigned codacta can be an empty match page.
+  // Require explicit final/public flags and both scores; never keep the raw report.
+  const finished = game.partido_en_juego === "0" && game.suspendido === "0";
+  const homeScore = finished ? score(game.goles_local) : null;
+  const awayScore = finished ? score(game.goles_visitante) : null;
+  const hasScore = homeScore !== null && awayScore !== null;
+  return {
+    homeScore: hasScore ? homeScore : null,
+    awayScore: hasScore ? awayScore : null,
+    reportPublished: hasScore && game.acta_cerrada === "1",
+  };
+}
+
 export class Federation {
   constructor({ directory, getText = officialText, getJson = officialJson }) {
     this.directory = directory;
@@ -173,6 +199,18 @@ export class Federation {
   }
   async page(url) {
     return nextProps(await this.getText(url));
+  }
+  async matchUpdate(match, teamId) {
+    if (
+      !/^[1-9]\d{0,11}$/.test(String(match.id)) ||
+      ![match.homeId, match.awayId].includes(teamId)
+    )
+      throw new SourceError(
+        "Partido no válido para el equipo configurado.",
+        400,
+      );
+    const { game } = await this.page(`/acta-partido/${match.id}`);
+    return parseMatchUpdate(game, match, teamId);
   }
   async search(query) {
     const clubQuery = query.trim().replace(/\s*['"][A-Z]['"]\s*$/i, "");

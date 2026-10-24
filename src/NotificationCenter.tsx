@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff, ExternalLink, LoaderCircle, X } from "lucide-react";
+import { matchReportUrl } from "./federation-links";
 
 type CalendarEvent = {
   id: string;
@@ -20,11 +21,26 @@ export type Announcement = {
   title: string;
   body: string;
 };
+type MatchEvent = {
+  id: string;
+  createdAt: string;
+  type: "result" | "report";
+  match: CalendarEvent["match"] & {
+    id: string;
+    homeScore: number;
+    awayScore: number;
+  };
+};
 export type NotificationFeed = {
-  events: (CalendarEvent | Announcement)[];
+  events: (CalendarEvent | Announcement | MatchEvent)[];
   lastCheckedAt: string | null;
   nextCheckAt: string | null;
   lastError: string | null;
+  results: {
+    lastCheckedAt: string | null;
+    nextCheckAt: string | null;
+    lastError: string | null;
+  };
 };
 export const noticeDate = (date: string | null) =>
   date
@@ -276,7 +292,9 @@ export default function NotificationCenter({
             <p>
               Revisamos el calendario cada 24 horas. Aquí verás los cambios de
               fecha, hora, campo y estado, además de nuevos partidos publicados
-              y los avisos de la administración.
+              y los avisos de la administración. Los resultados y las actas
+              pendientes se comprueban cada hora de 08:00 a 23:00, hora de
+              Madrid.
             </p>
             <section
               className="notification-preferences"
@@ -361,10 +379,19 @@ export default function NotificationCenter({
             {feed?.lastError && (
               <p className="notification-warning">{feed.lastError}</p>
             )}
+            {feed?.results?.lastError && (
+              <p className="notification-warning">{feed.results.lastError}</p>
+            )}
             <p className="notification-checks">
               Última revisión: {noticeDate(feed?.lastCheckedAt || null)}
               <br />
               Próxima revisión: {noticeDate(feed?.nextCheckAt || null)}
+              <br />
+              Resultados y actas:{" "}
+              {noticeDate(feed?.results?.lastCheckedAt || null)}
+              <br />
+              Próxima revisión horaria:{" "}
+              {noticeDate(feed?.results?.nextCheckAt || null)}
             </p>
             {!feed ? (
               <p role="status">Consultando avisos…</p>
@@ -398,26 +425,49 @@ export default function NotificationCenter({
                           {event.body}
                         </p>
                       </>
+                    ) : event.type === "result" || event.type === "report" ? (
+                      <>
+                        <p>
+                          {event.type === "report"
+                            ? "Acta publicada"
+                            : "Resultado publicado"}
+                          : {event.match.homeScore}–{event.match.awayScore}.
+                        </p>
+                        {event.type === "report" &&
+                          matchReportUrl(event.match.id) && (
+                            <a
+                              href={matchReportUrl(event.match.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Ver acta <ExternalLink size={12} />
+                            </a>
+                          )}
+                      </>
                     ) : event.type === "added" ? (
                       <p>Nuevo partido publicado.</p>
-                    ) : (
+                    ) : event.type === "changed" ? (
                       event.changes.map((change) => (
                         <p key={change.field}>
                           <b>{change.label}:</b> <del>{change.before}</del> →{" "}
                           <strong>{change.after}</strong>
                         </p>
                       ))
-                    )}
+                    ) : null}
                     <button
                       className="notification-calendar"
                       onClick={() => {
                         onCalendar(
-                          event.type === "announcement" ? "played" : "all",
+                          ["announcement", "result", "report"].includes(
+                            event.type,
+                          )
+                            ? "played"
+                            : "all",
                         );
                         setOpen(false);
                       }}
                     >
-                      {event.type === "announcement"
+                      {["announcement", "result", "report"].includes(event.type)
                         ? "Ver resultados"
                         : "Ver calendario"}
                     </button>

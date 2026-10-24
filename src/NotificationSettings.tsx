@@ -122,7 +122,9 @@ export default function NotificationSettings({
         <p>
           El servidor revisa el calendario cada 24 horas aunque nadie visite la
           web. Cada visitante puede activar las notificaciones en su propio
-          dispositivo desde la campana de la web pública.
+          dispositivo desde la campana de la web pública. Los resultados
+          recientes y las actas pendientes se comprueban cada hora de 08:00 a
+          23:00, hora de Madrid.
         </p>
         {status && (
           <dl className="notification-metrics">
@@ -135,6 +137,14 @@ export default function NotificationSettings({
               <dd>{noticeDate(status.nextCheckAt)}</dd>
             </div>
             <div>
+              <dt>Resultados y actas: última revisión</dt>
+              <dd>{noticeDate(status.results?.lastCheckedAt || null)}</dd>
+            </div>
+            <div>
+              <dt>Próxima revisión horaria</dt>
+              <dd>{noticeDate(status.results?.nextCheckAt || null)}</dd>
+            </div>
+            <div>
               <dt>Dispositivos suscritos</dt>
               <dd>{status.subscriptions}</dd>
             </div>
@@ -144,9 +154,15 @@ export default function NotificationSettings({
             </div>
           </dl>
         )}
-        {(error || status?.lastError || status?.lastPushError) && (
+        {(error ||
+          status?.lastError ||
+          status?.results?.lastError ||
+          status?.lastPushError) && (
           <p className="notice error-notice" role="alert">
-            {error || status?.lastError || status?.lastPushError}
+            {error ||
+              status?.lastError ||
+              status?.results?.lastError ||
+              status?.lastPushError}
           </p>
         )}
         {message && (

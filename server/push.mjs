@@ -252,7 +252,7 @@ export class PushService {
     const sub = await this.verified(input);
     const result = await this.deliver(sub, {
       title: "Avisos de partidos activados",
-      body: "Recibirás avisos de cambios en partidos y anuncios del equipo.",
+      body: "Recibirás avisos de cambios en partidos, resultados, actas publicadas y anuncios del equipo.",
       url: "/?view=calendar",
       tag: "futboleros-test",
     });

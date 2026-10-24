@@ -45,6 +45,7 @@ const notices = await (
   })
 ).json();
 assert.ok(notices.lastCheckedAt && notices.nextCheckAt);
+assert.ok(notices.results.nextCheckAt);
 assert.equal(
   Date.parse(notices.nextCheckAt) - Date.parse(notices.lastCheckedAt),
   24 * 60 * 60_000,
