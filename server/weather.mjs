@@ -1,4 +1,5 @@
 import { weatherJson } from "./weather-http.mjs";
+import { phaseOf } from "./match-timing.mjs";
 const dayFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Madrid",
   year: "numeric",
@@ -22,6 +23,10 @@ function targetFor(match, now) {
     new Date(date).toISOString().slice(0, 10) !== match.date
   )
     return unavailable("La fecha del partido está por confirmar.");
+  if (phaseOf(match, now) === "pending")
+    return unavailable(
+      "La hora prevista del partido ya ha pasado. El resultado está pendiente de publicación.",
+    );
   const days = Math.round(
     (date - Date.parse(`${dayFormatter.format(new Date(now))}T00:00:00Z`)) /
       86_400_000,

@@ -18,6 +18,7 @@ import {
 } from "./visitor-info.mjs";
 import { PushService } from "./push.mjs";
 import { CalendarWatch } from "./calendar-watch.mjs";
+import { phaseOf } from "./match-timing.mjs";
 
 export function createApp({
   directory = process.env.DATA_DIR || path.resolve("data"),
@@ -380,20 +381,12 @@ export function createApp({
     const config = await settings.read();
     if (!config.team) return null;
     const snapshot = await getSnapshot(config.team.id);
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Madrid",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(clock ? clock() : Date.now()));
+    const now = clock ? clock() : Date.now();
     return (
       snapshot.matches
         .filter(
           (match) =>
-            match.status === "scheduled" &&
-            match.homeScore === null &&
-            match.awayScore === null &&
-            (!match.date || match.date >= today),
+            match.status === "scheduled" && phaseOf(match, now) === "upcoming",
         )
         .sort(
           (a, b) =>
@@ -460,7 +453,12 @@ export function createApp({
           "Content-Type": "text/calendar; charset=utf-8",
           "Content-Disposition": 'attachment; filename="futboleros.ics"',
         })
-        .send(makeCalendar(await getSnapshot(config.team.id)));
+        .send(
+          makeCalendar(
+            await getSnapshot(config.team.id),
+            new Date(clock ? clock() : Date.now()),
+          ),
+        );
     } catch (e) {
       next(e);
     }
@@ -484,7 +482,7 @@ export function createApp({
       e.status = 400;
       throw e;
     }
-    return cache.get(id);
+    return calendarWatch.withResults(await cache.get(id));
   }
   async function allowTeam(req, res, next) {
     if (auth.authenticated(req)) return next();
@@ -508,7 +506,7 @@ export function createApp({
           "Content-Type": "text/calendar; charset=utf-8",
           "Content-Disposition": `attachment; filename="futboleros-${req.params.id}.ics"`,
         })
-        .send(makeCalendar(data));
+        .send(makeCalendar(data, new Date(clock ? clock() : Date.now())));
     } catch (e) {
       next(e);
     }

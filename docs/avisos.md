@@ -26,6 +26,8 @@ La ficha debe corresponder al identificador y a los dos equipos esperados. Un re
 
 La primera observación no anuncia resultados ni actas que ya estaban publicados. Sí se avisa cuando aparece el resultado de un partido seguido o cuando un acta observada como pendiente pasa a publicada. La campana distingue ambos tipos de aviso, muestra el marcador y ofrece el enlace federativo del acta publicada. Los avisos abren la sección de resultados de esta web. Las fechas de la última revisión horaria y la siguiente aparecen también en administración; un fallo se reintenta en la próxima hora permitida y no impide comprobar los demás partidos.
 
+Un marcador confirmado en la ficha del partido se aplica también a las consultas públicas del equipo, sin esperar a que el calendario federativo lo incorpore ni descargar de nuevo toda la temporada. Se conserva al reiniciar y no sustituye una corrección posterior ni se aplica a otra temporada o a un encuentro reprogramado. Mientras no haya un marcador publicado, los partidos cuya hora prevista ya pasó aparecen como **Pendientes de resultado**, separados de los próximos y de los resultados confirmados.
+
 El estado horario se guarda en el mismo `calendar-watch.json`, junto con los identificadores estables de los avisos y su cola de entrega, antes de intentar enviarlos. Un reinicio, una nueva consulta o la renumeración de la ficha del mismo encuentro no vuelven a generar el aviso. No se guarda el contenido íntegro del acta: solo el identificador del partido, equipos, jornada, fecha y hora, marcador y estado de publicación. La actualización admite los volúmenes existentes y no requiere tareas programadas externas ni cambios en los archivos de despliegue.
 
 ### Dispositivos

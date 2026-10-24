@@ -91,6 +91,24 @@ test("uses a daily range and daily rain probability if the kickoff time is unkno
   assert.equal(value.temperatureMax, 22);
   assert.equal(value.rainProbability, 40);
 });
+
+test("stops forecasting an elapsed kickoff even when its score is missing and a forecast was cached", async () => {
+  let clock = Date.parse("2026-10-24T08:29:00Z");
+  let calls = 0;
+  const weather = service(
+    async () => {
+      calls++;
+      return forecast();
+    },
+    { clock: () => clock },
+  );
+  assert.equal((await weather.forMatch(match)).available, true);
+  clock = Date.parse("2026-10-24T08:30:00Z");
+  const pending = await weather.forMatch(match);
+  assert.equal(pending.available, false);
+  assert.match(pending.reason, /resultado está pendiente/);
+  assert.equal(calls, 1);
+});
 test("does not query providers for missing, past, postponed or distant dates and uses Madrid's day boundary", async () => {
   let calls = 0;
   const weather = service(undefined, {

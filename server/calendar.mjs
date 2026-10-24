@@ -1,3 +1,5 @@
+import { phaseOf } from "./match-timing.mjs";
+
 function escape(value) {
   return String(value)
     .replace(/\\/g, "\\\\")
@@ -47,8 +49,7 @@ export function makeCalendar(snapshot, now = new Date()) {
   for (const m of snapshot.matches) {
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(m.date || "") ||
-      (m.homeScore !== null && m.awayScore !== null) ||
-      m.status === "postponed"
+      phaseOf(m, now.getTime()) !== "upcoming"
     )
       continue;
     lines.push(

@@ -955,6 +955,10 @@ td.points {
   border-radius: 7px;
   padding: 4px;
   gap: 4px;
+  flex-wrap: wrap;
+}
+.pending-results-panel {
+  margin-bottom: 24px;
 }
 .segmented button {
   background: transparent;

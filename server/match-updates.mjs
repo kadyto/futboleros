@@ -23,6 +23,17 @@ const scoreOf = (match) =>
   )
     ? [match.homeScore, match.awayScore]
     : null;
+const identityOf = (match) =>
+  Object.fromEntries(
+    ["id", "homeId", "awayId", "date", "time"].map((field) => [
+      field,
+      match[field],
+    ]),
+  );
+const sameIdentity = (left, right) =>
+  ["id", "homeId", "awayId", "date", "time"].every(
+    (field) => left?.[field] === right?.[field],
+  );
 
 export const resultHours = (now) => {
   const hour = Number(local(now).hour);
@@ -149,10 +160,66 @@ export function observeMatch(entry, update, { teamId, season, now }) {
       match: { ...entry.match, homeScore: score[0], awayScore: score[1] },
     });
   }
-  if (score) entry.score = score;
+  if (score) {
+    entry.score = score;
+    entry.scoreObservedAt = new Date(now).toISOString();
+    entry.scoreIdentity = identityOf(entry.match);
+  }
   entry.report = entry.report === true || Boolean(update.reportPublished);
   entry.lastPolledAt = new Date(now).toISOString();
   return events;
+}
+
+export function applyMatchResults(snapshot, results, events = []) {
+  if (!Array.isArray(results?.matches)) return snapshot;
+  const observed = new Map(
+    results.matches.map((entry) => [entry.match.id, entry]),
+  );
+  const snapshotAt = Date.parse(snapshot.updatedAt);
+  let changed = false;
+  const matches = snapshot.matches.map((match) => {
+    if (match.status === "postponed") return match;
+    const entry = observed.get(match.id);
+    if (!entry || !Array.isArray(entry.score) || entry.score.length !== 2)
+      return match;
+    const score = scoreOf({
+      homeScore: entry.score[0],
+      awayScore: entry.score[1],
+    });
+    if (!score) return match;
+    let observedAt = Date.parse(entry.scoreObservedAt);
+    let identity = entry.scoreIdentity;
+    if (!Number.isFinite(observedAt) || !identity) {
+      // Older volumes have no observation timestamp. Only an actual result/report
+      // event proves that this score was observed; lastPolledAt can be a blank response.
+      const evidence = events.find(
+        (event) =>
+          ["result", "report"].includes(event.type) &&
+          sameIdentity(event.match, match) &&
+          event.match.homeScore === score[0] &&
+          event.match.awayScore === score[1],
+      );
+      observedAt = Date.parse(evidence?.createdAt);
+      identity = evidence?.match;
+    }
+    if (!Number.isFinite(observedAt) || !sameIdentity(identity, match))
+      return match;
+    // Keep a newer calendar correction. A temporary missing score must not turn
+    // an already confirmed result back into an upcoming fixture.
+    if (
+      scoreOf(match) &&
+      (!Number.isFinite(snapshotAt) || snapshotAt > observedAt)
+    )
+      return match;
+    changed = true;
+    return {
+      ...match,
+      homeScore: score[0],
+      awayScore: score[1],
+      status: "played",
+    };
+  });
+  return changed ? { ...snapshot, matches } : snapshot;
 }
 
 export function matchPayload(event) {

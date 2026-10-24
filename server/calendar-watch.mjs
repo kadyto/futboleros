@@ -2,6 +2,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { JsonFile } from "./json-file.mjs";
 import {
+  applyMatchResults,
   initialResults,
   matchPayload,
   nextResultCheck,
@@ -623,6 +624,22 @@ export class CalendarWatch {
     return this.publicState(
       state.teamId === config.team?.id ? state : initial(config.team?.id),
     );
+  }
+  async withResults(snapshot) {
+    try {
+      const config = await this.settings.read();
+      if (config.team?.id !== snapshot.team.id) return snapshot;
+      const state = await this.read();
+      if (
+        state.teamId !== snapshot.team.id ||
+        state.season !== snapshot.team.season
+      )
+        return snapshot;
+      return applyMatchResults(snapshot, state.results, state.events);
+    } catch {
+      // Notification storage must not take the public team offline.
+      return snapshot;
+    }
   }
   async status() {
     const config = await this.settings.read();

@@ -117,8 +117,18 @@ const path = require("node:path");
       ["result"],
     );
     await page.goto(base);
+    await page.locator(".results-panel .match-row").waitFor();
+    assert.deepEqual(
+      await page.locator(".results-panel .match-teams b").allTextContents(),
+      ["0", "0"],
+      "the hourly result must also update the public home, even while its calendar source is still blank",
+    );
+    assert.equal(await page.locator(".pending-results-panel").count(), 0);
     await page
-      .getByRole("button", { name: "Avisos de partidos", exact: true })
+      .getByText("No hay próximos partidos publicados.", { exact: true })
+      .waitFor();
+    await page
+      .getByRole("button", { name: /^Avisos de partidos(?:, \d+ sin leer)?$/ })
       .click();
     await page
       .getByText("Resultado publicado: 0–0.", { exact: true })
@@ -169,7 +179,7 @@ const path = require("node:path");
     );
     await page.goto(base);
     await page
-      .getByRole("button", { name: "Avisos de partidos", exact: true })
+      .getByRole("button", { name: /^Avisos de partidos(?:, \d+ sin leer)?$/ })
       .click();
     await page.getByText("Acta publicada: 0–0.", { exact: true }).waitFor();
     const report = page.getByRole("link", { name: "Ver acta", exact: true });

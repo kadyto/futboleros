@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.json vite.config.ts index.html ./
 COPY src ./src
+COPY server/match-timing.mjs server/match-timing.d.mts ./server/
 COPY public ./public
 RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 

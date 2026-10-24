@@ -17,6 +17,8 @@ Tu equipo, su calendario y toda la temporada en una web sencilla, sin anuncios, 
 
 La aplicación consulta los datos públicos de la RFFM. No está afiliada a la federación. La información depende de lo que esta publique y los horarios pueden cambiar. Las fichas sin grupo asignado, las plantillas no publicadas y las horas pendientes se muestran como tales; no se inventan datos ni se sustituye un fallo por la demostración.
 
+La próxima cita y el filtro **Próximos** tienen en cuenta la fecha y la hora de Madrid. Al llegar la hora prevista, un encuentro sin marcador pasa a **Pendientes**, con la indicación «Pendiente de resultado»; no se da por finalizado ni se inventa un marcador. Si falta la hora, se mantiene durante ese día y pasa a pendientes al terminar la fecha en Madrid. Los resultados confirmados al comprobar el acta se reflejan también en la portada y el calendario, aunque el calendario de la federación todavía no los haya incorporado.
+
 ## Posiciones y estimación del próximo partido
 
 Las posiciones junto a los equipos corresponden a la clasificación actual de su grupo, también cuando consultas resultados antiguos. Si no se puede identificar con seguridad al equipo en la tabla, se muestra «Sin posición». Se utiliza primero el identificador federativo y solo se recurre al nombre cuando no hay identificadores contradictorios ni nombres ambiguos.

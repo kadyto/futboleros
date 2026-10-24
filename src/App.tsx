@@ -29,6 +29,7 @@ import PlayerCard from "./PlayerCard";
 import MatchWeather from "./MatchWeather";
 import useStatistics from "./useStatistics";
 import NotificationCenter from "./NotificationCenter";
+import { hasResult as isPlayed, phaseOf } from "../server/match-timing.mjs";
 
 type View = "overview" | "calendar" | "standings" | "squad";
 const sections = [
@@ -55,9 +56,6 @@ function sameTeam(name: string, id: string | undefined, team: Team) {
 }
 function ours(match: Match, team: Team) {
   return sameTeam(match.home, match.homeId, team);
-}
-function isPlayed(m: Match) {
-  return m.homeScore !== null && m.awayScore !== null;
 }
 function result(m: Match, team: Team) {
   if (!isPlayed(m)) return null;
@@ -91,27 +89,32 @@ function MatchRow({
   team,
   standings,
   showReport = false,
+  now,
 }: {
   match: Match;
   team: Team;
   standings: Standing[];
   showReport?: boolean;
+  now: number;
 }) {
   const r = result(m, team);
   const reportUrl = matchReportUrl(m.id);
+  const phase = phaseOf(m, now);
   return (
     <div className={`match-row${showReport ? " match-row--report" : ""}`}>
       <div className="match-date">
         <span>{m.round ? `JORNADA ${m.round}` : "PARTIDO"}</span>
         <strong>{displayDate(m.date)}</strong>
         <small>
-          {m.status === "postponed"
-            ? "Aplazado"
-            : isPlayed(m)
-              ? "Finalizado"
-              : m.time
-                ? `${m.time} h`
-                : "Hora por confirmar"}
+          {phase === "played"
+            ? "Finalizado"
+            : phase === "postponed"
+              ? "Aplazado"
+              : phase === "pending"
+                ? "Pendiente de resultado"
+                : m.time
+                  ? `${m.time} h`
+                  : "Hora por confirmar"}
         </small>
       </div>
       <div className="match-teams">
@@ -290,10 +293,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [calendarFilter, setCalendarFilter] = useState(() => {
     const filter = new URLSearchParams(window.location.search).get("filter");
-    return filter === "played" || filter === "all" ? filter : "upcoming";
+    return filter === "played" || filter === "pending" || filter === "all"
+      ? filter
+      : "upcoming";
   });
   const [mobileMenu, setMobileMenu] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   useStatistics(view, Boolean(data?.team));
   useEffect(() => {
     const ctrl = new AbortController();
@@ -320,7 +326,10 @@ export default function App() {
   }, [refreshKey]);
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") setRefreshKey((k) => k + 1);
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+        setRefreshKey((k) => k + 1);
+      }
     };
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
@@ -337,21 +346,22 @@ export default function App() {
         (a, b) =>
           (b.date || "").localeCompare(a.date || "") || b.round - a.round,
       ) || [];
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
   const upcoming =
     data?.matches
-      .filter((m) => !isPlayed(m) && (!m.date || m.date >= today))
+      .filter((m) => phaseOf(m, now) === "upcoming")
       .sort(
         (a, b) =>
           (a.date || "9999").localeCompare(b.date || "9999") ||
           a.round - b.round,
       ) || [];
-  const next = upcoming.find((m) => m.status !== "postponed") || upcoming[0];
+  const pending =
+    data?.matches
+      .filter((m) => phaseOf(m, now) === "pending")
+      .sort(
+        (a, b) =>
+          (b.date || "").localeCompare(a.date || "") || b.round - a.round,
+      ) || [];
+  const next = upcoming[0];
   const position =
     team && data ? findStanding(data.standings, team.name, team.id) : undefined;
   const nextHomePosition =
@@ -486,7 +496,12 @@ export default function App() {
             <div className="notice error-notice" role="alert">
               <Info size={18} />
               <span>{error}</span>
-              <button onClick={() => setRefreshKey((k) => k + 1)}>
+              <button
+                onClick={() => {
+                  setNow(Date.now());
+                  setRefreshKey((k) => k + 1);
+                }}
+              >
                 Reintentar
               </button>
             </div>
@@ -559,7 +574,10 @@ export default function App() {
                 </div>
                 <button
                   className="secondary refresh"
-                  onClick={() => setRefreshKey((k) => k + 1)}
+                  onClick={() => {
+                    setNow(Date.now());
+                    setRefreshKey((k) => k + 1);
+                  }}
                   disabled={loading}
                 >
                   <RefreshCw size={15} className={loading ? "spin" : ""} />
@@ -596,6 +614,40 @@ export default function App() {
               )}
               {view === "overview" && (
                 <>
+                  {pending.length > 0 && (
+                    <section
+                      className="panel pending-results-panel"
+                      aria-labelledby="pending-results-title"
+                    >
+                      <div className="section-header">
+                        <h2 id="pending-results-title">
+                          Pendientes de resultado
+                        </h2>
+                        <button
+                          className="text-link"
+                          onClick={() => {
+                            setCalendarFilter("pending");
+                            navigate("calendar");
+                          }}
+                        >
+                          Ver pendientes <ArrowRight size={15} />
+                        </button>
+                      </div>
+                      {pending.slice(0, 2).map((m) => (
+                        <MatchRow
+                          key={m.id}
+                          match={m}
+                          team={team!}
+                          standings={data.standings}
+                          now={now}
+                        />
+                      ))}
+                      <p className="panel-footnote">
+                        Estos encuentros esperan un marcador publicado por la
+                        federación.
+                      </p>
+                    </section>
+                  )}
                   <div className="overview-grid">
                     <section className="next-match panel">
                       <div className="section-header">
@@ -791,6 +843,7 @@ export default function App() {
                               match={m}
                               team={team!}
                               standings={data.standings}
+                              now={now}
                             />
                           ))
                       ) : (
@@ -835,6 +888,7 @@ export default function App() {
                     <div className="segmented" aria-label="Filtrar partidos">
                       {[
                         ["upcoming", "Próximos"],
+                        ["pending", "Pendientes"],
                         ["played", "Resultados"],
                         ["all", "Todos"],
                       ].map(([id, label]) => (
@@ -855,24 +909,29 @@ export default function App() {
                   </div>
                   {(calendarFilter === "upcoming"
                     ? upcoming
-                    : calendarFilter === "played"
-                      ? played
-                      : [...data.matches].sort((a, b) => a.round - b.round)
+                    : calendarFilter === "pending"
+                      ? pending
+                      : calendarFilter === "played"
+                        ? played
+                        : [...data.matches].sort((a, b) => a.round - b.round)
                   ).map((m) => (
                     <MatchRow
                       key={m.id}
                       match={m}
                       team={team!}
                       standings={data.standings}
+                      now={now}
                       showReport
                     />
                   ))}
                   {!(
                     calendarFilter === "upcoming"
                       ? upcoming
-                      : calendarFilter === "played"
-                        ? played
-                        : data.matches
+                      : calendarFilter === "pending"
+                        ? pending
+                        : calendarFilter === "played"
+                          ? played
+                          : data.matches
                   ).length && <Empty text="No hay partidos en esta sección." />}
                   <p className="panel-footnote">
                     <Info size={14} />

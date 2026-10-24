@@ -55,3 +55,35 @@ test("exports only scheduled events, preserves Madrid time and date-only unknown
   assert.match(v, /TZOFFSETTO:\+0200/);
   for (const line of v.split("\r\n")) assert.ok(Buffer.byteLength(line) <= 75);
 });
+
+test("omits past kickoffs without inventing a score and keeps today's unknown-hour fixture", () => {
+  const fixture = {
+    round: 1,
+    home: "Equipo local",
+    away: "Equipo visitante",
+    homeScore: null,
+    awayScore: null,
+    status: "scheduled",
+    date: "2026-10-24",
+    time: "16:00",
+  };
+  const snapshot = {
+    team: {
+      id: "1001",
+      name: "Equipo de prueba",
+      sourceUrl: "https://www.rffm.es",
+    },
+    matches: [
+      { ...fixture, id: "3101" },
+      { ...fixture, id: "3102", time: "21:00" },
+      { ...fixture, id: "3103", time: null },
+      { ...fixture, id: "3104", date: "2026-10-23", time: null },
+    ],
+  };
+  const value = makeCalendar(snapshot, new Date("2026-10-24T17:57:00Z"));
+  assert.doesNotMatch(value, /1001-3101@/);
+  assert.match(value, /1001-3102@/);
+  assert.match(value, /1001-3103@/);
+  assert.doesNotMatch(value, /1001-3104@/);
+  assert.equal(snapshot.matches[0].homeScore, null);
+});
